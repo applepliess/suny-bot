@@ -10,15 +10,26 @@ const RCON_HOST = process.env.RCON_HOST || '127.0.0.1';
 const RCON_PORT = parseInt(process.env.RCON_PORT) || 7777;
 const RCON_PASSWORD = process.env.RCON_PASSWORD || 'твой_пароль_rcon';
 
-// ========== НАСТРОЙКА КИТОВ С ТВОИМИ ФОТО ==========
+// ========== НАСТРОЙКА КИТОВ ==========
 const KITS = {
+    // ===== ТЕСТОВЫЙ КИТ ЗА 1 ЗВЕЗДУ =====
+    test: {
+        id: 'test',
+        name: '🧪 Тестовый Kit',
+        description: '✅ Проверка оплаты звездами\n✅ Выдача тестового набора',
+        price: 1, // ВСЕГО 1 ЗВЕЗДА!
+        emoji: '🧪',
+        image: 'https://i.postimg.cc/nX3mkwWg/file-1.jpg',
+        command: '/givekit test'
+    },
+    // ===== ОСНОВНЫЕ КИТЫ =====
     pvp: {
         id: 'pvp',
         name: '⚔️ PvP Kit',
         description: '✅ Броня + AK-47 + M4 + 50.000$',
         price: 20,
         emoji: '⚔️',
-        image: 'https://i.postimg.cc/nX3mkwWg/file-1.jpg', // Твоё фото PvP
+        image: 'https://i.postimg.cc/nX3mkwWg/file-1.jpg',
         command: '/givekit pvp'
     },
     pvp_plus: {
@@ -27,7 +38,7 @@ const KITS = {
         description: '✅ Броня + Миниган + Снайперка + 100.000$',
         price: 35,
         emoji: '🔥',
-        image: 'https://i.postimg.cc/HrvJ58cY/file-2.jpg', // Твоё фото PvP+
+        image: 'https://i.postimg.cc/HrvJ58cY/file-2.jpg',
         command: '/givekit pvpplus'
     },
     pvp_plusplus: {
@@ -36,7 +47,7 @@ const KITS = {
         description: '✅ Броня + РПГ + Миниган + 250.000$ + Вип статус',
         price: 50,
         emoji: '💀',
-        image: 'https://i.postimg.cc/CBkdWvvZ/file.jpg', // Твоё фото PvP++
+        image: 'https://i.postimg.cc/CBkdWvvZ/file.jpg',
         command: '/givekit pvpplusplus'
     }
 };
@@ -55,6 +66,7 @@ const bot = new TelegramBot(BOT_TOKEN, {
 console.log('🤖 Бот запущен!');
 console.log(`👤 Админ: ${ADMIN_ID}`);
 console.log(`📦 Китов: ${Object.keys(KITS).length}`);
+console.log('🧪 Тестовый кит за 1 ⭐ доступен!');
 
 // ========== ФУНКЦИЯ ОТПРАВКИ КОМАНДЫ НА СЕРВЕР ==========
 async function sendCommandToServer(command, playerName) {
@@ -97,9 +109,12 @@ bot.onText(/\/start/, async (msg) => {
     const text = `🌟 <b>Добро пожаловать, ${firstName}!</b>\n\n` +
         `💎 <b>Магазин PvP Китов за Telegram Stars</b>\n` +
         `━━━━━━━━━━━━━━━━━━━━━\n\n` +
-        `💰 <b>Пополни баланс звезд</b> и покупай крутые наборы!\n\n` +
+        `🧪 <b>ТЕСТОВЫЙ КИТ ЗА 1 ⭐!</b>\n` +
+        `Проверь работу бота перед покупкой!\n` +
+        `━━━━━━━━━━━━━━━━━━━━━\n\n` +
         `📋 <b>Доступные наборы:</b>\n` +
         `━━━━━━━━━━━━━━━━━━━━━\n` +
+        `🧪 Test Kit — 1 ⭐ (ТЕСТ!)\n` +
         `⚔️ PvP Kit — 20 ⭐\n` +
         `🔥 PvP+ Kit — 35 ⭐\n` +
         `💀 PvP++ Kit — 50 ⭐\n` +
@@ -109,6 +124,9 @@ bot.onText(/\/start/, async (msg) => {
     const keyboard = {
         reply_markup: {
             inline_keyboard: [
+                [
+                    { text: '🧪 TEST (1⭐)', callback_data: 'show_test' }
+                ],
                 [
                     { text: '⚔️ PvP Kit (20⭐)', callback_data: 'show_pvp' },
                     { text: '🔥 PvP+ Kit (35⭐)', callback_data: 'show_pvp_plus' }
@@ -135,11 +153,18 @@ async function showKit(chatId, kitKey) {
     const kit = KITS[kitKey];
     if (!kit) return;
     
-    const caption = `📦 <b>${kit.name}</b>\n\n` +
-        `${kit.description}\n\n` +
-        `💰 <b>Цена:</b> ${kit.price} ⭐\n` +
-        `━━━━━━━━━━━━━━━━━━━━━\n\n` +
-        `⬇️ <b>Нажми кнопку "Купить" для оплаты</b>`;
+    let caption = `📦 <b>${kit.name}</b>\n\n${kit.description}\n\n`;
+    
+    if (kitKey === 'test') {
+        caption += `🧪 <b>ЭТО ТЕСТОВЫЙ НАБОР!</b>\n`;
+        caption += `💰 Цена: ${kit.price} ⭐ (всего 1 звезда!)\n\n`;
+        caption += `✅ Проверь как работает оплата\n`;
+        caption += `✅ После оплаты получишь тестовый набор\n\n`;
+    } else {
+        caption += `💰 <b>Цена:</b> ${kit.price} ⭐\n\n`;
+    }
+    
+    caption += `━━━━━━━━━━━━━━━━━━━━━\n\n⬇️ <b>Нажми кнопку "Купить" для оплаты</b>`;
     
     const keyboard = {
         reply_markup: {
@@ -175,6 +200,12 @@ bot.on('callback_query', async (callbackQuery) => {
     const chatId = callbackQuery.message.chat.id;
     const userId = callbackQuery.from.id;
     const messageId = callbackQuery.message.message_id;
+    
+    if (action === 'show_test') {
+        await showKit(chatId, 'test');
+        await bot.answerCallbackQuery(callbackQuery.id);
+        return;
+    }
     
     if (action === 'show_pvp') {
         await showKit(chatId, 'pvp');
@@ -215,9 +246,12 @@ bot.on('callback_query', async (callbackQuery) => {
         const text = `🌟 <b>Добро пожаловать, ${firstName}!</b>\n\n` +
             `💎 <b>Магазин PvP Китов за Telegram Stars</b>\n` +
             `━━━━━━━━━━━━━━━━━━━━━\n\n` +
-            `💰 <b>Пополни баланс звезд</b> и покупай крутые наборы!\n\n` +
+            `🧪 <b>ТЕСТОВЫЙ КИТ ЗА 1 ⭐!</b>\n` +
+            `Проверь работу бота перед покупкой!\n` +
+            `━━━━━━━━━━━━━━━━━━━━━\n\n` +
             `📋 <b>Доступные наборы:</b>\n` +
             `━━━━━━━━━━━━━━━━━━━━━\n` +
+            `🧪 Test Kit — 1 ⭐ (ТЕСТ!)\n` +
             `⚔️ PvP Kit — 20 ⭐\n` +
             `🔥 PvP+ Kit — 35 ⭐\n` +
             `💀 PvP++ Kit — 50 ⭐\n` +
@@ -227,6 +261,9 @@ bot.on('callback_query', async (callbackQuery) => {
         const keyboard = {
             reply_markup: {
                 inline_keyboard: [
+                    [
+                        { text: '🧪 TEST (1⭐)', callback_data: 'show_test' }
+                    ],
                     [
                         { text: '⚔️ PvP Kit (20⭐)', callback_data: 'show_pvp' },
                         { text: '🔥 PvP+ Kit (35⭐)', callback_data: 'show_pvp_plus' }
@@ -360,7 +397,7 @@ async function createInvoice(chatId, userId, kit, kitKey) {
 bot.onText(/\/kits/, (msg) => {
     const chatId = msg.chat.id;
     
-    let text = `📦 <b>Все PvP Киты:</b>\n\n`;
+    let text = `📦 <b>Все доступные киты:</b>\n\n`;
     
     for (const [key, kit] of Object.entries(KITS)) {
         text += `${kit.emoji} <b>${kit.name}</b>\n`;
@@ -374,6 +411,9 @@ bot.onText(/\/kits/, (msg) => {
     const keyboard = {
         reply_markup: {
             inline_keyboard: [
+                [
+                    { text: '🧪 TEST (1⭐)', callback_data: 'show_test' }
+                ],
                 [
                     { text: '⚔️ PvP Kit (20⭐)', callback_data: 'show_pvp' },
                     { text: '🔥 PvP+ Kit (35⭐)', callback_data: 'show_pvp_plus' }
@@ -447,30 +487,40 @@ bot.on('successful_payment', async (msg) => {
         console.log(`   Цена: ${payment.total_amount} ⭐`);
         console.log(`   ID платежа: ${payment.telegram_payment_charge_id}`);
         
-        await bot.sendMessage(chatId, 
-            `⏳ <b>Обработка платежа...</b>\n\n` +
+        let messageText = `⏳ <b>Обработка платежа...</b>\n\n` +
             `📦 ${kit.emoji} ${kit.name}\n` +
             `💰 Списано: ${payment.total_amount} ⭐\n` +
-            `👤 Игрок: ${username}\n\n` +
-            `🔄 Выдача на сервер...`,
-            { parse_mode: 'HTML' }
-        );
+            `👤 Игрок: ${username}\n\n`;
+        
+        if (kitKey === 'test') {
+            messageText += `🧪 <b>ЭТО ТЕСТОВЫЙ ПЛАТЕЖ!</b>\n`;
+            messageText += `✅ Если ты видишь это сообщение - бот работает!\n\n`;
+        }
+        
+        messageText += `🔄 Выдача на сервер...`;
+        
+        await bot.sendMessage(chatId, messageText, { parse_mode: 'HTML' });
         
         const success = await sendCommandToServer(kit.command, username);
         
         if (success) {
-            await bot.sendMessage(chatId, 
-                `✅ <b>Набор успешно выдан!</b>\n\n` +
+            let successText = `✅ <b>Набор успешно выдан!</b>\n\n` +
                 `📦 ${kit.emoji} ${kit.name}\n` +
                 `👤 Игрок: ${username}\n` +
                 `⭐ Списано: ${payment.total_amount}\n` +
-                `🆔 Платеж: ${payment.telegram_payment_charge_id.slice(0, 10)}...\n\n` +
-                `🎮 <b>Заходи на сервер и получай набор!</b>`,
-                { parse_mode: 'HTML' }
-            );
+                `🆔 Платеж: ${payment.telegram_payment_charge_id.slice(0, 10)}...\n\n`;
+            
+            if (kitKey === 'test') {
+                successText += `🧪 <b>ТЕСТ ПРОЙДЕН УСПЕШНО!</b>\n`;
+                successText += `🎉 Бот работает корректно!\n\n`;
+            }
+            
+            successText += `🎮 <b>Заходи на сервер и получай набор!</b>`;
+            
+            await bot.sendMessage(chatId, successText, { parse_mode: 'HTML' });
             
             await bot.sendMessage(ADMIN_ID, 
-                `✅ <b>Успешная выдача!</b>\n\n` +
+                `✅ <b>${kitKey === 'test' ? '🧪 ТЕСТОВАЯ' : ''} Успешная выдача!</b>\n\n` +
                 `👤 Игрок: ${username} (ID: ${userId})\n` +
                 `📦 Кит: ${kit.name}\n` +
                 `⭐ Цена: ${payment.total_amount} звезд\n` +
@@ -544,3 +594,4 @@ for (const [key, kit] of Object.entries(KITS)) {
     console.log(`   /${key} - ${kit.name} (${kit.price} ⭐)`);
 }
 console.log('━━━━━━━━━━━━━━━━━━━━━');
+console.log('🧪 ТЕСТОВЫЙ КИТ ЗА 1 ЗВЕЗДУ ДОСТУПЕН!');
