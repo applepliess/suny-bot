@@ -1,243 +1,80 @@
-require('dotenv').config();
 const TelegramBot = require('node-telegram-bot-api');
 
-// ========== ТВОИ ДАННЫЕ ==========
-const BOT_TOKEN = '8792137358:AAHMO9wKGVKvXgYsqOz5cSN43xdSpUzrknk';
-const ADMIN_ID = '8579640456';
+// ТВОЙ ТОКЕН
+const TOKEN = '8792137358:AAHMO9wKGVKvXgYsqOz5cSN43xdSpUzrknk';
 
-// ========== НАСТРОЙКА КИТОВ ==========
-const KITS = {
-    test: {
-        id: 'test',
-        name: '🧪 Test Kit',
-        description: 'Проверка оплаты звездами',
-        price: 1,
-        emoji: '🧪',
-        image: 'https://i.postimg.cc/nX3mkwWg/file-1.jpg'
-    },
-    pvp: {
-        id: 'pvp',
-        name: '⚔️ PvP Kit',
-        description: 'Броня + AK-47 + M4 + 50.000$',
-        price: 20,
-        emoji: '⚔️',
-        image: 'https://i.postimg.cc/nX3mkwWg/file-1.jpg'
-    },
-    pvp_plus: {
-        id: 'pvp_plus',
-        name: '🔥 PvP+ Kit',
-        description: 'Броня + Миниган + Снайперка + 100.000$',
-        price: 35,
-        emoji: '🔥',
-        image: 'https://i.postimg.cc/HrvJ58cY/file-2.jpg'
-    },
-    pvp_plusplus: {
-        id: 'pvp_plusplus',
-        name: '💀 PvP++ Kit',
-        description: 'Броня + РПГ + Миниган + 250.000$ + Вип статус',
-        price: 50,
-        emoji: '💀',
-        image: 'https://i.postimg.cc/CBkdWvvZ/file.jpg'
-    }
-};
+const bot = new TelegramBot(TOKEN, { polling: true });
 
-// ========== ИНИЦИАЛИЗАЦИЯ БОТА ==========
-const bot = new TelegramBot(BOT_TOKEN, { polling: true });
+console.log('🧪 Тестовый бот запущен!');
 
-console.log('🤖 Бот запущен!');
-
-// ========== КОМАНДА /START ==========
+// Команда /start
 bot.onText(/\/start/, (msg) => {
     const chatId = msg.chat.id;
-    const firstName = msg.from.first_name || 'Игрок';
     
-    const text = `🌟 <b>Добро пожаловать, ${firstName}!</b>\n\n` +
-        `💎 <b>Магазин PvP Китов за Telegram Stars</b>\n` +
-        `━━━━━━━━━━━━━━━━━━━━━\n\n` +
-        `🧪 <b>ТЕСТОВЫЙ КИТ ЗА 1 ⭐!</b>\n` +
-        `━━━━━━━━━━━━━━━━━━━━━\n\n` +
-        `📋 <b>Доступные наборы:</b>\n` +
-        `🧪 Test Kit — 1 ⭐ (ТЕСТ!)\n` +
-        `⚔️ PvP Kit — 20 ⭐\n` +
-        `🔥 PvP+ Kit — 35 ⭐\n` +
-        `💀 PvP++ Kit — 50 ⭐\n` +
-        `━━━━━━━━━━━━━━━━━━━━━\n\n` +
-        `⬇️ <b>Нажми на кнопку чтобы купить</b>`;
-    
-    const keyboard = {
-        reply_markup: {
-            inline_keyboard: [
-                [{ text: '🧪 TEST (1⭐)', callback_data: 'buy_test' }],
-                [{ text: '⚔️ PvP (20⭐)', callback_data: 'buy_pvp' }],
-                [{ text: '🔥 PvP+ (35⭐)', callback_data: 'buy_pvp_plus' }],
-                [{ text: '💀 PvP++ (50⭐)', callback_data: 'buy_pvp_plusplus' }]
-            ]
-        }
-    };
-    
-    bot.sendMessage(chatId, text, { 
-        parse_mode: 'HTML',
-        ...keyboard
-    });
-});
-
-// ========== ОБРАБОТЧИК КНОПОК ==========
-bot.on('callback_query', async (callbackQuery) => {
-    const action = callbackQuery.data;
-    const chatId = callbackQuery.message.chat.id;
-    const userId = callbackQuery.from.id;
-    const messageId = callbackQuery.message.message_id;
-    
-    if (action.startsWith('buy_')) {
-        const kitKey = action.replace('buy_', '');
-        const kit = KITS[kitKey];
-        
-        if (kit) {
-            try {
-                await bot.deleteMessage(chatId, messageId);
-            } catch (e) {}
-            
-            await createInvoice(chatId, userId, kit, kitKey);
-        }
-        
-        await bot.answerCallbackQuery(callbackQuery.id);
-    }
-});
-
-// ========== ГЛАВНАЯ ФУНКЦИЯ СОЗДАНИЯ СЧЕТА ==========
-async function createInvoice(chatId, userId, kit, kitKey) {
-    try {
-        console.log(`💰 Создание счета: ${kit.name} (${kit.price} ⭐)`);
-        
-        // ⚠️ ВАЖНО: Для Stars НЕ НУЖЕН provider_token!
-        // Мы его просто НЕ передаем!
-        
-        const prices = [
-            { label: kit.name, amount: kit.price }
-        ];
-        
-        // ⭐ ПРАВИЛЬНЫЙ СПОСОБ для Stars
-        await bot.sendInvoice(
-            chatId,                           // chat_id
-            kit.name,                         // title
-            kit.description,                  // description
-            JSON.stringify({                  // payload
-                kit: kitKey,
-                userId: userId,
-                time: Date.now()
-            }),
-            undefined,                        // ⭐ provider_token = undefined (НЕ пустая строка!)
-            'XTR',                            // ⭐ currency = XTR
-            prices,                           // prices
-            {
-                start_parameter: 'buy_' + kitKey + '_' + Date.now(),
-                photo_url: kit.image,
-                photo_size: 100,
-                photo_width: 100,
-                photo_height: 100
+    bot.sendMessage(chatId, 
+        '🧪 <b>Тест оплаты звездами</b>\n\n' +
+        'Нажми на кнопку ниже чтобы создать счет на 1 звезду',
+        {
+            parse_mode: 'HTML',
+            reply_markup: {
+                inline_keyboard: [
+                    [{ text: '💎 Купить за 1 ⭐', callback_data: 'buy' }]
+                ]
             }
-        );
-        
-        console.log(`✅ Счет отправлен!`);
-        
-    } catch (error) {
-        console.error('❌ Ошибка:', error);
-        
-        let errorMsg = '❌ Ошибка создания платежа.\n\n';
-        
-        if (error.message && error.message.includes('XTR')) {
-            errorMsg += '⚠️ Проблема с валютой XTR.\n';
-            errorMsg += '1. Обнови Telegram\n';
-            errorMsg += '2. Проверь Stars в регионе';
-        } else {
-            errorMsg += `Ошибка: ${error.message || 'Неизвестная ошибка'}`;
+        }
+    );
+});
+
+// Обработка кнопки
+bot.on('callback_query', async (query) => {
+    const chatId = query.message.chat.id;
+    
+    if (query.data === 'buy') {
+        try {
+            console.log('📦 Создаем счет...');
+            
+            // ⭐ САМЫЙ ПРОСТОЙ СПОСОБ
+            await bot.sendInvoice(
+                chatId,                          // chat_id
+                '🧪 Test Kit',                   // title
+                'Тестовый набор за 1 звезду',    // description
+                'test_payload_' + Date.now(),    // payload
+                undefined,                       // ⭐ НЕТ provider_token!
+                'XTR',                           // ⭐ XTR = Stars
+                [{ label: 'Test Kit', amount: 1 }], // price = 1
+                {
+                    start_parameter: 'test_' + Date.now()
+                }
+            );
+            
+            console.log('✅ Счет отправлен!');
+            
+        } catch (error) {
+            console.error('❌ ОШИБКА:', error.message);
+            bot.sendMessage(chatId, '❌ Ошибка: ' + error.message);
         }
         
-        await bot.sendMessage(chatId, errorMsg);
+        await bot.answerCallbackQuery(query.id);
     }
-}
+});
 
-// ========== ПОДТВЕРЖДЕНИЕ ПЛАТЕЖА ==========
+// PreCheckout
 bot.on('pre_checkout_query', async (query) => {
     try {
-        console.log(`💳 PreCheckout от ${query.from.username}`);
-        
-        // ⭐ ОБЯЗАТЕЛЬНО ПОДТВЕРЖДАЕМ
-        await bot.answerPreCheckoutQuery(
-            query.id,
-            true,
-            '✅ Оплата принята!'
-        );
-        
-        console.log(`✅ PreCheckout подтвержден`);
-        
+        await bot.answerPreCheckoutQuery(query.id, true, '✅ OK');
+        console.log('✅ PreCheckout OK');
     } catch (error) {
-        console.error('❌ PreCheckout ошибка:', error);
-        try {
-            await bot.answerPreCheckoutQuery(
-                query.id,
-                false,
-                '❌ Ошибка оплаты'
-            );
-        } catch (e) {}
+        console.error('❌ PreCheckout error:', error.message);
     }
 });
 
-// ========== УСПЕШНАЯ ОПЛАТА ==========
-bot.on('successful_payment', async (msg) => {
-    const chatId = msg.chat.id;
-    const username = msg.from.username || msg.from.first_name;
-    const payment = msg.successful_payment;
+// Успешная оплата
+bot.on('successful_payment', (msg) => {
+    console.log('💎 УСПЕШНАЯ ОПЛАТА!');
+    console.log('   Игрок:', msg.from.username);
+    console.log('   Сумма:', msg.successful_payment.total_amount, '⭐');
     
-    console.log(`💎 УСПЕШНАЯ ОПЛАТА!`);
-    console.log(`   Игрок: ${username}`);
-    console.log(`   Сумма: ${payment.total_amount} ⭐`);
-    console.log(`   ID: ${payment.telegram_payment_charge_id}`);
-    
-    try {
-        const payload = JSON.parse(payment.payload);
-        const kitKey = payload.kit;
-        const kit = KITS[kitKey];
-        
-        if (!kit) {
-            await bot.sendMessage(chatId, '❌ Ошибка: неизвестный кит');
-            return;
-        }
-        
-        // ✅ Успех!
-        await bot.sendMessage(chatId,
-            `✅ <b>Оплата прошла успешно!</b>\n\n` +
-            `📦 ${kit.emoji} ${kit.name}\n` +
-            `⭐ Списано: ${payment.total_amount} звезд\n` +
-            `👤 Игрок: ${username}\n\n` +
-            `🎮 <b>Набор выдан!</b>`,
-            { parse_mode: 'HTML' }
-        );
-        
-        // Уведомление админу
-        await bot.sendMessage(ADMIN_ID,
-            `✅ <b>НОВАЯ ПОКУПКА!</b>\n\n` +
-            `👤 Игрок: ${username}\n` +
-            `📦 Кит: ${kit.name}\n` +
-            `⭐ Цена: ${payment.total_amount} звезд\n` +
-            `🆔 Платеж: ${payment.telegram_payment_charge_id}`,
-            { parse_mode: 'HTML' }
-        );
-        
-    } catch (error) {
-        console.error('❌ Ошибка:', error);
-        await bot.sendMessage(chatId, '❌ Ошибка обработки платежа');
-    }
+    bot.sendMessage(msg.chat.id, '✅ Оплата прошла успешно! 🎉');
 });
 
-// ========== ЛОГИ ==========
-bot.on('polling_error', (error) => {
-    console.error('❌ Ошибка поллинга:', error);
-});
-
-console.log('✅ Бот готов!');
-console.log('📋 Доступные киты:');
-for (const [key, kit] of Object.entries(KITS)) {
-    console.log(`   ${kit.name} — ${kit.price} ⭐`);
-}
-console.log('━━━━━━━━━━━━━━━━━━━━━');
+console.log('✅ Готово! Напиши /start');
