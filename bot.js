@@ -286,7 +286,7 @@ function showPrivileges(chatId) {
         }
     }
     
-    // ⬇️ УБРАЛ СТРОКУ: "⬇️ Выбери привилегию для подробностей:"
+    // ⬇️ НАДПИСЬ ПОЛНОСТЬЮ УБРАНА! ⬇️
     
     const buttons = Object.entries(PRIVILEGES).map(([key, priv]) => [
         { text: `${priv.emoji} ${priv.name} (${priv.price}⭐)`, callback_data: `show_priv_${key}` }
