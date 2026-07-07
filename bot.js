@@ -1,10 +1,9 @@
 const TelegramBot = require('node-telegram-bot-api');
 
-// ========== ТВОИ ДАННЫЕ ==========
 const BOT_TOKEN = '8792137358:AAHMO9wKGVKvXgYsqOz5cSN43xdSpUzrknk';
 const ADMIN_ID = '8579640456';
 
-// ========== НАСТРОЙКА КИТОВ С ФОТО ==========
+// ========== НАСТРОЙКА КИТОВ ==========
 const KITS = {
     pvp: {
         id: 'pvp',
@@ -286,7 +285,7 @@ function showPrivileges(chatId) {
         }
     }
     
-    // ⬇️ НАДПИСЬ ПОЛНОСТЬЮ УБРАНА! ⬇️
+    // ⬇️ НАДПИСЬ ПОЛНОСТЬЮ УДАЛЕНА! ⬇️
     
     const buttons = Object.entries(PRIVILEGES).map(([key, priv]) => [
         { text: `${priv.emoji} ${priv.name} (${priv.price}⭐)`, callback_data: `show_priv_${key}` }
