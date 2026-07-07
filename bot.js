@@ -28,12 +28,14 @@ const KITS = {
 
 // ========== НАСТРОЙКА ПРИВИЛЕГИЙ ==========
 const PRIVILEGES = {
+    // ===== ТОЛЬКО НА ЭТИ 3 ПРИВИЛЕГИИ СКИДКА 50% =====
     dadmin: {
         id: 'dadmin',
         name: '👑 D.ADMIN',
-        price: 649,
-        oldPrice: 1298,
+        price: 325,           // 649 / 2 = 324.5 → 325
+        oldPrice: 649,
         discount: '🔥 СКИДКА 50%!',
+        hasDiscount: true,
         emoji: '👑',
         features: [
             'Бонус: +5 000 Рилликов!',
@@ -45,9 +47,10 @@ const PRIVILEGES = {
     pasxa: {
         id: 'pasxa',
         name: '🐣 PASXA',
-        price: 499,
-        oldPrice: 998,
+        price: 250,           // 499 / 2 = 249.5 → 250
+        oldPrice: 499,
         discount: '🔥 СКИДКА 50%!',
+        hasDiscount: true,
         emoji: '🐣',
         features: [
             'Бонус: +4 000 Рилликов!',
@@ -59,9 +62,10 @@ const PRIVILEGES = {
     monster: {
         id: 'monster',
         name: '👹 MONSTER',
-        price: 399,
-        oldPrice: 798,
+        price: 200,           // 399 / 2 = 199.5 → 200
+        oldPrice: 399,
         discount: '🔥 СКИДКА 50%!',
+        hasDiscount: true,
         emoji: '👹',
         features: [
             'Бонус: +3 000 Рилликов!',
@@ -70,12 +74,14 @@ const PRIVILEGES = {
             'Префикс [MONSTER] в чате и табе'
         ]
     },
+    // ===== БЕЗ СКИДКИ =====
     pegas: {
         id: 'pegas',
         name: '🐴 PEGAS',
         price: 200,
-        oldPrice: 400,
-        discount: '🔥 СКИДКА 50%!',
+        oldPrice: null,
+        discount: null,
+        hasDiscount: false,
         emoji: '🐴',
         features: [
             'Бонус: +2 000 Рилликов!',
@@ -88,8 +94,9 @@ const PRIVILEGES = {
         id: 'god',
         name: '✨ GOD',
         price: 150,
-        oldPrice: 300,
-        discount: '🔥 СКИДКА 50%!',
+        oldPrice: null,
+        discount: null,
+        hasDiscount: false,
         emoji: '✨',
         features: [
             'Полное бессмертие на сервере (/god)',
@@ -101,8 +108,9 @@ const PRIVILEGES = {
         id: 'cobra',
         name: '🐍 COBRA',
         price: 89,
-        oldPrice: 178,
-        discount: '🔥 СКИДКА 50%!',
+        oldPrice: null,
+        discount: null,
+        hasDiscount: false,
         emoji: '🐍',
         features: [
             'Уникальный кит - /kit cobra',
@@ -114,8 +122,9 @@ const PRIVILEGES = {
         id: 'hydra',
         name: '🐉 HYDRA',
         price: 59,
-        oldPrice: 118,
-        discount: '🔥 СКИДКА 50%!',
+        oldPrice: null,
+        discount: null,
+        hasDiscount: false,
         emoji: '🐉',
         features: [
             'Уникальный кит - /kit hydra',
@@ -126,8 +135,9 @@ const PRIVILEGES = {
         id: 'dhelper',
         name: '🛠️ D.HELPER',
         price: 54,
-        oldPrice: 108,
-        discount: '🔥 СКИДКА 50%!',
+        oldPrice: null,
+        discount: null,
+        hasDiscount: false,
         emoji: '🛠️',
         features: [
             'Уникальный кит - /kit dhelper',
@@ -138,8 +148,9 @@ const PRIVILEGES = {
         id: 'tiger',
         name: '🐯 TIGER',
         price: 45,
-        oldPrice: 90,
-        discount: '🔥 СКИДКА 50%!',
+        oldPrice: null,
+        discount: null,
+        hasDiscount: false,
         emoji: '🐯',
         features: [
             'Уникальный кит - /kit tiger',
@@ -150,8 +161,9 @@ const PRIVILEGES = {
         id: 'bunny',
         name: '🐰 BUNNY',
         price: 35,
-        oldPrice: 70,
-        discount: '🔥 СКИДКА 50%!',
+        oldPrice: null,
+        discount: null,
+        hasDiscount: false,
         emoji: '🐰',
         features: [
             'Уникальный кит - /kit bunny',
@@ -162,8 +174,9 @@ const PRIVILEGES = {
         id: 'bull',
         name: '🐂 BULL',
         price: 19,
-        oldPrice: 38,
-        discount: '🔥 СКИДКА 50%!',
+        oldPrice: null,
+        discount: null,
+        hasDiscount: false,
         emoji: '🐂',
         features: [
             'Уникальный кит - /kit bull',
@@ -188,7 +201,8 @@ bot.onText(/\/start/, (msg) => {
     const text = `🌟 <b>Добро пожаловать, ${firstName}!</b>\n\n` +
         `💎 <b>Магазин PvP Китов и Привилегий</b>\n` +
         `━━━━━━━━━━━━━━━━━━━━━\n\n` +
-        `🔥 <b>СКИДКА 50% НА ВСЕ ПРИВИЛЕГИИ!</b>\n` +
+        `🔥 <b>СКИДКА 50% НА:</b>\n` +
+        `👑 D.ADMIN | 🐣 PASXA | 👹 MONSTER\n` +
         `━━━━━━━━━━━━━━━━━━━━━\n\n` +
         `⬇️ <b>Выбери раздел:</b>`;
     
@@ -197,7 +211,7 @@ bot.onText(/\/start/, (msg) => {
         reply_markup: {
             inline_keyboard: [
                 [{ text: '⚔️ PvP Киты', callback_data: 'show_kits' }],
-                [{ text: '👑 Привилегии 🔥-50%', callback_data: 'show_privileges' }],
+                [{ text: '👑 Привилегии', callback_data: 'show_privileges' }],
                 [
                     { text: '💰 Баланс', callback_data: 'balance' },
                     { text: '⭐ Купить Stars', callback_data: 'buystars' }
@@ -237,13 +251,16 @@ function showKits(chatId) {
 // ========== ПОКАЗ ПРИВИЛЕГИЙ ==========
 function showPrivileges(chatId) {
     let text = `👑 <b>Привилегии</b>\n\n`;
-    text += `🔥 <b>СКИДКА 50% НА ВСЕ!</b>\n`;
+    text += `🔥 <b>СКИДКА 50% НА:</b> D.ADMIN, PASXA, MONSTER\n`;
     text += `━━━━━━━━━━━━━━━━━━━━━\n\n`;
     
     for (const [key, priv] of Object.entries(PRIVILEGES)) {
-        text += `${priv.emoji} <b>${priv.name}</b>\n`;
-        text += `   💰 ${priv.price} ⭐ (было ${priv.oldPrice} ⭐)\n`;
-        text += `   🎯 ${priv.discount}\n\n`;
+        if (priv.hasDiscount) {
+            text += `${priv.emoji} <b>${priv.name}</b>\n`;
+            text += `   💰 ${priv.price} ⭐ (было ${priv.oldPrice} ⭐) ${priv.discount}\n\n`;
+        } else {
+            text += `${priv.emoji} <b>${priv.name}</b> — ${priv.price} ⭐\n\n`;
+        }
     }
     
     text += `⬇️ <b>Выбери привилегию для подробностей:</b>`;
@@ -268,9 +285,15 @@ function showPrivilegeDetail(chatId, privKey) {
     
     let text = `${priv.emoji} <b>${priv.name}</b>\n`;
     text += `━━━━━━━━━━━━━━━━━━━━━\n`;
-    text += `💰 <b>Цена со скидкой:</b> ${priv.price} ⭐\n`;
-    text += `💰 <b>Старая цена:</b> ${priv.oldPrice} ⭐\n`;
-    text += `🎯 <b>Скидка:</b> ${priv.discount}\n\n`;
+    
+    if (priv.hasDiscount) {
+        text += `💰 <b>Цена со скидкой:</b> ${priv.price} ⭐\n`;
+        text += `💰 <b>Старая цена:</b> ${priv.oldPrice} ⭐\n`;
+        text += `🎯 <b>Скидка:</b> ${priv.discount}\n\n`;
+    } else {
+        text += `💰 <b>Цена:</b> ${priv.price} ⭐\n\n`;
+    }
+    
     text += `<b>📋 В комплекте:</b>\n`;
     
     for (const feature of priv.features) {
@@ -302,7 +325,8 @@ bot.on('callback_query', async (query) => {
         const text = `🌟 <b>Добро пожаловать, ${firstName}!</b>\n\n` +
             `💎 <b>Магазин PvP Китов и Привилегий</b>\n` +
             `━━━━━━━━━━━━━━━━━━━━━\n\n` +
-            `🔥 <b>СКИДКА 50% НА ВСЕ ПРИВИЛЕГИИ!</b>\n` +
+            `🔥 <b>СКИДКА 50% НА:</b>\n` +
+            `👑 D.ADMIN | 🐣 PASXA | 👹 MONSTER\n` +
             `━━━━━━━━━━━━━━━━━━━━━\n\n` +
             `⬇️ <b>Выбери раздел:</b>`;
         
@@ -311,7 +335,7 @@ bot.on('callback_query', async (query) => {
             reply_markup: {
                 inline_keyboard: [
                     [{ text: '⚔️ PvP Киты', callback_data: 'show_kits' }],
-                    [{ text: '👑 Привилегии 🔥-50%', callback_data: 'show_privileges' }],
+                    [{ text: '👑 Привилегии', callback_data: 'show_privileges' }],
                     [
                         { text: '💰 Баланс', callback_data: 'balance' },
                         { text: '⭐ Купить Stars', callback_data: 'buystars' }
@@ -386,7 +410,7 @@ bot.on('callback_query', async (query) => {
             await bot.sendInvoice(
                 chatId,
                 priv.name,
-                `Покупка ${priv.name} со скидкой 50%`,
+                priv.hasDiscount ? `Покупка ${priv.name} со скидкой 50%` : `Покупка ${priv.name}`,
                 JSON.stringify({ 
                     item: 'priv_' + privKey,
                     userId: userId,
@@ -473,7 +497,8 @@ bot.on('callback_query', async (query) => {
             `2️⃣ Выбери товар\n` +
             `3️⃣ Оплати звездами\n` +
             `4️⃣ Получи на сервере!\n\n` +
-            `🔥 <b>СКИДКА 50% НА ВСЕ ПРИВИЛЕГИИ!</b>\n\n` +
+            `🔥 <b>СКИДКА 50% НА:</b>\n` +
+            `👑 D.ADMIN | 🐣 PASXA | 👹 MONSTER\n\n` +
             `⚠️ <b>Важно:</b>\n` +
             `• Оплата работает ТОЛЬКО в мобильном Telegram\n` +
             `• Нужна версия Telegram 10.0+\n` +
@@ -525,8 +550,8 @@ bot.on('successful_payment', (msg) => {
             const privId = itemKey.replace('priv_', '');
             item = PRIVILEGES[privId];
             itemType = 'Привилегия';
-            if (item.discount) {
-                discountText = ` (со скидкой 50%)`;
+            if (item.hasDiscount) {
+                discountText = ' (со скидкой 50%)';
             }
         }
         
@@ -592,7 +617,11 @@ console.log('✅ Бот готов!');
 console.log('━━━━━━━━━━━━━━━━━━━━━');
 console.log('📋 Доступные разделы:');
 console.log('   ⚔️ PvP Киты');
-console.log('   👑 Привилегии 🔥-50%');
+console.log('   👑 Привилегии');
 console.log('━━━━━━━━━━━━━━━━━━━━━');
-console.log('🔥 СКИДКА 50% НА ВСЕ ПРИВИЛЕГИИ!');
+console.log('🔥 СКИДКА 50% ТОЛЬКО НА:');
+console.log('   👑 D.ADMIN — 325 ⭐ (было 649 ⭐)');
+console.log('   🐣 PASXA — 250 ⭐ (было 499 ⭐)');
+console.log('   👹 MONSTER — 200 ⭐ (было 399 ⭐)');
+console.log('━━━━━━━━━━━━━━━━━━━━━');
 console.log('📞 Уведомления админу: @gokot');
