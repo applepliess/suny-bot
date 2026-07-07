@@ -6,7 +6,6 @@ const BOT_TOKEN = '8792137358:AAHMO9wKGVKvXgYsqOz5cSN43xdSpUzrknk';
 const ADMIN_ID = '8579640456';
 
 // ========== КУРС: 1 ⭐ = 1 РУБЛЬ ==========
-// Цены переведены из рублей в звезды
 
 // ========== НАСТРОЙКА КИТОВ (PVP) ==========
 const KITS = {
@@ -35,6 +34,22 @@ const KITS = {
 
 // ========== НАСТРОЙКА ПРИВИЛЕГИЙ ==========
 const PRIVILEGES = {
+    // ===== ТЕСТОВАЯ ПРИВИЛЕГИЯ ЗА 1 ЗВЕЗДУ =====
+    test: {
+        id: 'test',
+        name: '🧪 TEST Privilege',
+        price: 1,
+        oldPrice: 10,
+        discount: '-90%',
+        emoji: '🧪',
+        features: [
+            '🧪 ТЕСТОВАЯ ПРИВИЛЕГИЯ!',
+            '✅ Проверка оплаты звездами',
+            '✅ Всего 1 звезда для теста',
+            '✅ Если видишь это - бот работает!'
+        ]
+    },
+    // ===== ОСНОВНЫЕ ПРИВИЛЕГИИ =====
     dadmin: {
         id: 'dadmin',
         name: '👑 D.ADMIN',
@@ -189,6 +204,7 @@ console.log('🤖 Бот запущен!');
 console.log(`👤 Админ: ${ADMIN_ID}`);
 console.log(`📦 Китов: ${Object.keys(KITS).length}`);
 console.log(`👑 Привилегий: ${Object.keys(PRIVILEGES).length}`);
+console.log(`🧪 Тестовая привилегия за 1 ⭐ доступна!`);
 
 // ========== ФУНКЦИЯ ФОРМАТИРОВАНИЯ ЦЕНЫ ==========
 function formatPrice(price) {
@@ -203,11 +219,14 @@ bot.onText(/\/start/, (msg) => {
     const text = `🌟 <b>Добро пожаловать, ${firstName}!</b>\n\n` +
         `💎 <b>Магазин PvP Китов и Привилегий</b>\n` +
         `━━━━━━━━━━━━━━━━━━━━━\n\n` +
+        `🧪 <b>ЕСТЬ ТЕСТОВАЯ ПРИВИЛЕГИЯ ЗА 1 ⭐!</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━\n\n` +
         `⬇️ <b>Выбери раздел:</b>`;
     
     const keyboard = {
         reply_markup: {
             inline_keyboard: [
+                [{ text: '🧪 TEST (1⭐)', callback_data: 'show_test_priv' }],
                 [{ text: '⚔️ PvP Киты', callback_data: 'show_kits' }],
                 [{ text: '👑 Привилегии', callback_data: 'show_privileges' }],
                 [
@@ -227,6 +246,38 @@ bot.onText(/\/start/, (msg) => {
         ...keyboard
     });
 });
+
+// ========== ПОКАЗ ТЕСТОВОЙ ПРИВИЛЕГИИ ==========
+async function showTestPrivilege(chatId) {
+    const priv = PRIVILEGES.test;
+    
+    let text = `🧪 <b>ТЕСТОВАЯ ПРИВИЛЕГИЯ</b>\n`;
+    text += `━━━━━━━━━━━━━━━━━━━━━\n`;
+    text += `💰 <b>Цена:</b> ${formatPrice(priv.price)}\n`;
+    text += `💰 <b>Старая цена:</b> ${formatPrice(priv.oldPrice)}\n`;
+    text += `🎯 <b>Скидка:</b> ${priv.discount}\n\n`;
+    text += `<b>📋 В комплекте:</b>\n`;
+    
+    for (const feature of priv.features) {
+        text += `✅ ${feature}\n`;
+    }
+    
+    text += `\n⬇️ <b>Нажми кнопку чтобы купить (всего 1 звезда!)</b>`;
+    
+    const keyboard = {
+        reply_markup: {
+            inline_keyboard: [
+                [{ text: `💎 Купить за ${priv.price} ⭐`, callback_data: `buy_priv_test` }],
+                [{ text: '⬅️ Назад в меню', callback_data: 'back_to_menu' }]
+            ]
+        }
+    };
+    
+    await bot.sendMessage(chatId, text, { 
+        parse_mode: 'HTML',
+        ...keyboard
+    });
+}
 
 // ========== ПОКАЗ КИТОВ ==========
 async function showKits(chatId) {
@@ -261,7 +312,9 @@ async function showPrivileges(chatId) {
     text += `Все привилегии со скидкой 50%!\n`;
     text += `━━━━━━━━━━━━━━━━━━━━━\n\n`;
     
+    // Показываем все привилегии, кроме тестовой
     for (const [key, priv] of Object.entries(PRIVILEGES)) {
+        if (key === 'test') continue;
         text += `${priv.emoji} <b>${priv.name}</b>\n`;
         text += `   💰 ${formatPrice(priv.price)} (было ${formatPrice(priv.oldPrice)}) ${priv.discount}\n\n`;
     }
@@ -271,9 +324,11 @@ async function showPrivileges(chatId) {
     const keyboard = {
         reply_markup: {
             inline_keyboard: [
-                ...Object.entries(PRIVILEGES).map(([key, priv]) => [
-                    { text: `${priv.emoji} ${priv.name} (${priv.price}⭐)`, callback_data: `show_priv_${key}` }
-                ]),
+                ...Object.entries(PRIVILEGES)
+                    .filter(([key]) => key !== 'test')
+                    .map(([key, priv]) => [
+                        { text: `${priv.emoji} ${priv.name} (${priv.price}⭐)`, callback_data: `show_priv_${key}` }
+                    ]),
                 [{ text: '⬅️ Назад в меню', callback_data: 'back_to_menu' }]
             ]
         }
@@ -332,11 +387,14 @@ bot.on('callback_query', async (callbackQuery) => {
         const text = `🌟 <b>Добро пожаловать, ${firstName}!</b>\n\n` +
             `💎 <b>Магазин PvP Китов и Привилегий</b>\n` +
             `━━━━━━━━━━━━━━━━━━━━━\n\n` +
+            `🧪 <b>ЕСТЬ ТЕСТОВАЯ ПРИВИЛЕГИЯ ЗА 1 ⭐!</b>\n` +
+            `━━━━━━━━━━━━━━━━━━━━━\n\n` +
             `⬇️ <b>Выбери раздел:</b>`;
         
         const keyboard = {
             reply_markup: {
                 inline_keyboard: [
+                    [{ text: '🧪 TEST (1⭐)', callback_data: 'show_test_priv' }],
                     [{ text: '⚔️ PvP Киты', callback_data: 'show_kits' }],
                     [{ text: '👑 Привилегии', callback_data: 'show_privileges' }],
                     [
@@ -352,6 +410,13 @@ bot.on('callback_query', async (callbackQuery) => {
         };
         
         await bot.sendMessage(chatId, text, { parse_mode: 'HTML', ...keyboard });
+        await bot.answerCallbackQuery(callbackQuery.id);
+        return;
+    }
+    
+    if (action === 'show_test_priv') {
+        try { await bot.deleteMessage(chatId, messageId); } catch (e) {}
+        await showTestPrivilege(chatId);
         await bot.answerCallbackQuery(callbackQuery.id);
         return;
     }
@@ -456,6 +521,7 @@ bot.on('callback_query', async (callbackQuery) => {
             `3️⃣ Нажми на нужный товар\n` +
             `4️⃣ Оплати звездами\n` +
             `5️⃣ Получи на сервере!\n\n` +
+            `🧪 <b>Тестовая привилегия за 1 ⭐</b> — проверь работу бота!\n\n` +
             `⚠️ <b>Важно:</b>\n` +
             `• Оплата работает ТОЛЬКО в мобильном Telegram\n` +
             `• Нужна версия Telegram 10.0+\n` +
@@ -474,7 +540,8 @@ async function showStats(chatId, userId) {
         await bot.sendMessage(chatId,
             `📊 <b>Твоя статистика</b>\n\n` +
             `У тебя пока нет покупок.\n` +
-            `Купи свой первый товар! 🚀`,
+            `Купи свой первый товар! 🚀\n` +
+            `🧪 Попробуй тестовую привилегию за 1 ⭐!`,
             { parse_mode: 'HTML' }
         );
         return;
@@ -527,7 +594,8 @@ async function createInvoice(chatId, userId, item, itemKey) {
             errorMsg += '⚠️ Проблема с Telegram Stars.\n';
             errorMsg += '1. Обнови Telegram до 10.0+\n';
             errorMsg += '2. Проверь доступность Stars в регионе\n';
-            errorMsg += '3. Используй мобильный Telegram';
+            errorMsg += '3. Используй мобильный Telegram\n\n';
+            errorMsg += '🧪 Попробуй тестовую привилегию за 1 ⭐!';
         } else {
             errorMsg += `Ошибка: ${error.message || 'Неизвестная ошибка'}`;
         }
@@ -569,6 +637,7 @@ bot.on('successful_payment', async (msg) => {
         // Ищем товар в китах или привилегиях
         let item = null;
         let itemType = '';
+        let isTest = false;
         
         if (itemKey.startsWith('kit_')) {
             const kitId = itemKey.replace('kit_', '');
@@ -578,6 +647,7 @@ bot.on('successful_payment', async (msg) => {
             const privId = itemKey.replace('priv_', '');
             item = PRIVILEGES[privId];
             itemType = 'Привилегия';
+            if (privId === 'test') isTest = true;
         }
         
         if (!item) {
@@ -599,19 +669,24 @@ bot.on('successful_payment', async (msg) => {
             time: new Date().toISOString()
         });
         
-        await bot.sendMessage(chatId,
-            `✅ <b>Оплата прошла успешно!</b>\n\n` +
+        let successText = `✅ <b>Оплата прошла успешно!</b>\n\n` +
             `📦 ${item.emoji} ${item.name}\n` +
             `📋 Тип: ${itemType}\n` +
             `⭐ Списано: ${payment.total_amount} звезд\n` +
-            `👤 Игрок: ${username}\n\n` +
-            `🎮 <b>Товар выдан на сервер!</b>\n` +
-            `🆔 Платеж: ${payment.telegram_payment_charge_id.slice(0, 10)}...`,
-            { parse_mode: 'HTML' }
-        );
+            `👤 Игрок: ${username}\n\n`;
+        
+        if (isTest) {
+            successText += `🧪 <b>ТЕСТ ПРОЙДЕН УСПЕШНО!</b>\n`;
+            successText += `🎉 Бот работает корректно!\n\n`;
+        }
+        
+        successText += `🎮 <b>Товар выдан на сервер!</b>\n` +
+            `🆔 Платеж: ${payment.telegram_payment_charge_id.slice(0, 10)}...`;
+        
+        await bot.sendMessage(chatId, successText, { parse_mode: 'HTML' });
         
         await bot.sendMessage(ADMIN_ID,
-            `✅ <b>НОВАЯ ПОКУПКА!</b>\n\n` +
+            `✅ <b>${isTest ? '🧪 ТЕСТОВАЯ' : ''} НОВАЯ ПОКУПКА!</b>\n\n` +
             `👤 Игрок: ${username} (ID: ${userId})\n` +
             `📦 Товар: ${item.name}\n` +
             `📋 Тип: ${itemType}\n` +
@@ -630,7 +705,7 @@ bot.on('successful_payment', async (msg) => {
     }
 });
 
-// ========== КОМАНДЫ (для обратной совместимости) ==========
+// ========== КОМАНДЫ ==========
 bot.onText(/\/balance/, (msg) => {
     bot.sendMessage(msg.chat.id,
         `💰 <b>Как узнать баланс звезд:</b>\n\n` +
@@ -667,7 +742,8 @@ bot.onText(/\/help/, (msg) => {
         `/balance — Баланс звезд\n` +
         `/buystars — Купить звезды\n` +
         `/stats — Моя статистика\n` +
-        `/help — Эта справка`,
+        `/help — Эта справка\n\n` +
+        `🧪 Тестовая привилегия за 1 ⭐ — проверь работу бота!`,
         { parse_mode: 'HTML' }
     );
 });
@@ -684,6 +760,7 @@ process.on('unhandledRejection', (error) => {
 console.log('✅ Бот готов!');
 console.log('━━━━━━━━━━━━━━━━━━━━━');
 console.log('📋 Доступные разделы:');
+console.log('   🧪 TEST Privilege (1⭐)');
 console.log('   ⚔️ PvP Киты');
 console.log('   👑 Привилегии');
 console.log('━━━━━━━━━━━━━━━━━━━━━');
@@ -692,3 +769,4 @@ console.log('1. Оплата работает ТОЛЬКО в мобильном
 console.log('2. Версия Telegram должна быть 10.0+');
 console.log('3. Stars должны быть доступны в регионе');
 console.log('4. Курс: 1 ⭐ = 1 РУБЛЬ');
+console.log('5. 🧪 Тестовая привилегия за 1 ⭐ для проверки!');
