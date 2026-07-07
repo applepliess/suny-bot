@@ -2,7 +2,7 @@ const TelegramBot = require('node-telegram-bot-api');
 
 // ========== ТВОИ ДАННЫЕ ==========
 const BOT_TOKEN = '8792137358:AAHMO9wKGVKvXgYsqOz5cSN43xdSpUzrknk';
-const ADMIN_ID = '8579640456';
+const ADMIN_ID = '8579640456'; // ID админа для уведомлений
 
 // ========== НАСТРОЙКА КИТОВ ==========
 const KITS = {
@@ -28,21 +28,12 @@ const KITS = {
 
 // ========== НАСТРОЙКА ПРИВИЛЕГИЙ ==========
 const PRIVILEGES = {
-    test: {
-        id: 'test',
-        name: '🧪 TEST Privilege',
-        price: 1,
-        emoji: '🧪',
-        features: [
-            '🧪 ТЕСТОВАЯ ПРИВИЛЕГИЯ!',
-            '✅ Проверка оплаты звездами',
-            '✅ Всего 1 звезда для теста'
-        ]
-    },
     dadmin: {
         id: 'dadmin',
         name: '👑 D.ADMIN',
         price: 649,
+        oldPrice: 1298,
+        discount: '🔥 СКИДКА 50%!',
         emoji: '👑',
         features: [
             'Бонус: +5 000 Рилликов!',
@@ -55,6 +46,8 @@ const PRIVILEGES = {
         id: 'pasxa',
         name: '🐣 PASXA',
         price: 499,
+        oldPrice: 998,
+        discount: '🔥 СКИДКА 50%!',
         emoji: '🐣',
         features: [
             'Бонус: +4 000 Рилликов!',
@@ -67,6 +60,8 @@ const PRIVILEGES = {
         id: 'monster',
         name: '👹 MONSTER',
         price: 399,
+        oldPrice: 798,
+        discount: '🔥 СКИДКА 50%!',
         emoji: '👹',
         features: [
             'Бонус: +3 000 Рилликов!',
@@ -79,6 +74,8 @@ const PRIVILEGES = {
         id: 'pegas',
         name: '🐴 PEGAS',
         price: 200,
+        oldPrice: 400,
+        discount: '🔥 СКИДКА 50%!',
         emoji: '🐴',
         features: [
             'Бонус: +2 000 Рилликов!',
@@ -91,6 +88,8 @@ const PRIVILEGES = {
         id: 'god',
         name: '✨ GOD',
         price: 150,
+        oldPrice: 300,
+        discount: '🔥 СКИДКА 50%!',
         emoji: '✨',
         features: [
             'Полное бессмертие на сервере (/god)',
@@ -102,6 +101,8 @@ const PRIVILEGES = {
         id: 'cobra',
         name: '🐍 COBRA',
         price: 89,
+        oldPrice: 178,
+        discount: '🔥 СКИДКА 50%!',
         emoji: '🐍',
         features: [
             'Уникальный кит - /kit cobra',
@@ -113,6 +114,8 @@ const PRIVILEGES = {
         id: 'hydra',
         name: '🐉 HYDRA',
         price: 59,
+        oldPrice: 118,
+        discount: '🔥 СКИДКА 50%!',
         emoji: '🐉',
         features: [
             'Уникальный кит - /kit hydra',
@@ -123,6 +126,8 @@ const PRIVILEGES = {
         id: 'dhelper',
         name: '🛠️ D.HELPER',
         price: 54,
+        oldPrice: 108,
+        discount: '🔥 СКИДКА 50%!',
         emoji: '🛠️',
         features: [
             'Уникальный кит - /kit dhelper',
@@ -133,6 +138,8 @@ const PRIVILEGES = {
         id: 'tiger',
         name: '🐯 TIGER',
         price: 45,
+        oldPrice: 90,
+        discount: '🔥 СКИДКА 50%!',
         emoji: '🐯',
         features: [
             'Уникальный кит - /kit tiger',
@@ -143,6 +150,8 @@ const PRIVILEGES = {
         id: 'bunny',
         name: '🐰 BUNNY',
         price: 35,
+        oldPrice: 70,
+        discount: '🔥 СКИДКА 50%!',
         emoji: '🐰',
         features: [
             'Уникальный кит - /kit bunny',
@@ -153,6 +162,8 @@ const PRIVILEGES = {
         id: 'bull',
         name: '🐂 BULL',
         price: 19,
+        oldPrice: 38,
+        discount: '🔥 СКИДКА 50%!',
         emoji: '🐂',
         features: [
             'Уникальный кит - /kit bull',
@@ -177,7 +188,7 @@ bot.onText(/\/start/, (msg) => {
     const text = `🌟 <b>Добро пожаловать, ${firstName}!</b>\n\n` +
         `💎 <b>Магазин PvP Китов и Привилегий</b>\n` +
         `━━━━━━━━━━━━━━━━━━━━━\n\n` +
-        `🧪 <b>ЕСТЬ ТЕСТОВАЯ ПРИВИЛЕГИЯ ЗА 1 ⭐!</b>\n` +
+        `🔥 <b>СКИДКА 50% НА ВСЕ ПРИВИЛЕГИИ!</b>\n` +
         `━━━━━━━━━━━━━━━━━━━━━\n\n` +
         `⬇️ <b>Выбери раздел:</b>`;
     
@@ -185,9 +196,8 @@ bot.onText(/\/start/, (msg) => {
         parse_mode: 'HTML',
         reply_markup: {
             inline_keyboard: [
-                [{ text: '🧪 TEST (1⭐)', callback_data: 'show_test' }],
                 [{ text: '⚔️ PvP Киты', callback_data: 'show_kits' }],
-                [{ text: '👑 Привилегии', callback_data: 'show_privileges' }],
+                [{ text: '👑 Привилегии 🔥-50%', callback_data: 'show_privileges' }],
                 [
                     { text: '💰 Баланс', callback_data: 'balance' },
                     { text: '⭐ Купить Stars', callback_data: 'buystars' }
@@ -200,32 +210,6 @@ bot.onText(/\/start/, (msg) => {
         }
     });
 });
-
-// ========== ПОКАЗ ТЕСТОВОЙ ПРИВИЛЕГИИ ==========
-function showTest(chatId) {
-    const priv = PRIVILEGES.test;
-    
-    let text = `🧪 <b>ТЕСТОВАЯ ПРИВИЛЕГИЯ</b>\n`;
-    text += `━━━━━━━━━━━━━━━━━━━━━\n`;
-    text += `💰 <b>Цена:</b> ${priv.price} ⭐\n\n`;
-    text += `<b>📋 В комплекте:</b>\n`;
-    
-    for (const feature of priv.features) {
-        text += `✅ ${feature}\n`;
-    }
-    
-    text += `\n⬇️ <b>Нажми кнопку чтобы купить (всего 1 звезда!)</b>`;
-    
-    bot.sendMessage(chatId, text, {
-        parse_mode: 'HTML',
-        reply_markup: {
-            inline_keyboard: [
-                [{ text: `💎 Купить за ${priv.price} ⭐`, callback_data: `buy_test` }],
-                [{ text: '⬅️ Назад в меню', callback_data: 'menu' }]
-            ]
-        }
-    });
-}
 
 // ========== ПОКАЗ КИТОВ ==========
 function showKits(chatId) {
@@ -253,19 +237,20 @@ function showKits(chatId) {
 // ========== ПОКАЗ ПРИВИЛЕГИЙ ==========
 function showPrivileges(chatId) {
     let text = `👑 <b>Привилегии</b>\n\n`;
+    text += `🔥 <b>СКИДКА 50% НА ВСЕ!</b>\n`;
+    text += `━━━━━━━━━━━━━━━━━━━━━\n\n`;
     
     for (const [key, priv] of Object.entries(PRIVILEGES)) {
-        if (key === 'test') continue;
-        text += `${priv.emoji} <b>${priv.name}</b> — ${priv.price} ⭐\n`;
+        text += `${priv.emoji} <b>${priv.name}</b>\n`;
+        text += `   💰 ${priv.price} ⭐ (было ${priv.oldPrice} ⭐)\n`;
+        text += `   🎯 ${priv.discount}\n\n`;
     }
     
-    text += `\n⬇️ <b>Выбери привилегию для подробностей:</b>`;
+    text += `⬇️ <b>Выбери привилегию для подробностей:</b>`;
     
-    const buttons = Object.entries(PRIVILEGES)
-        .filter(([key]) => key !== 'test')
-        .map(([key, priv]) => [
-            { text: `${priv.emoji} ${priv.name} (${priv.price}⭐)`, callback_data: `show_priv_${key}` }
-        ]);
+    const buttons = Object.entries(PRIVILEGES).map(([key, priv]) => [
+        { text: `${priv.emoji} ${priv.name} (${priv.price}⭐)`, callback_data: `show_priv_${key}` }
+    ]);
     buttons.push([{ text: '⬅️ Назад в меню', callback_data: 'menu' }]);
     
     bot.sendMessage(chatId, text, {
@@ -283,7 +268,9 @@ function showPrivilegeDetail(chatId, privKey) {
     
     let text = `${priv.emoji} <b>${priv.name}</b>\n`;
     text += `━━━━━━━━━━━━━━━━━━━━━\n`;
-    text += `💰 <b>Цена:</b> ${priv.price} ⭐\n\n`;
+    text += `💰 <b>Цена со скидкой:</b> ${priv.price} ⭐\n`;
+    text += `💰 <b>Старая цена:</b> ${priv.oldPrice} ⭐\n`;
+    text += `🎯 <b>Скидка:</b> ${priv.discount}\n\n`;
     text += `<b>📋 В комплекте:</b>\n`;
     
     for (const feature of priv.features) {
@@ -315,7 +302,7 @@ bot.on('callback_query', async (query) => {
         const text = `🌟 <b>Добро пожаловать, ${firstName}!</b>\n\n` +
             `💎 <b>Магазин PvP Китов и Привилегий</b>\n` +
             `━━━━━━━━━━━━━━━━━━━━━\n\n` +
-            `🧪 <b>ЕСТЬ ТЕСТОВАЯ ПРИВИЛЕГИЯ ЗА 1 ⭐!</b>\n` +
+            `🔥 <b>СКИДКА 50% НА ВСЕ ПРИВИЛЕГИИ!</b>\n` +
             `━━━━━━━━━━━━━━━━━━━━━\n\n` +
             `⬇️ <b>Выбери раздел:</b>`;
         
@@ -323,9 +310,8 @@ bot.on('callback_query', async (query) => {
             parse_mode: 'HTML',
             reply_markup: {
                 inline_keyboard: [
-                    [{ text: '🧪 TEST (1⭐)', callback_data: 'show_test' }],
                     [{ text: '⚔️ PvP Киты', callback_data: 'show_kits' }],
-                    [{ text: '👑 Привилегии', callback_data: 'show_privileges' }],
+                    [{ text: '👑 Привилегии 🔥-50%', callback_data: 'show_privileges' }],
                     [
                         { text: '💰 Баланс', callback_data: 'balance' },
                         { text: '⭐ Купить Stars', callback_data: 'buystars' }
@@ -337,12 +323,6 @@ bot.on('callback_query', async (query) => {
                 ]
             }
         });
-        bot.answerCallbackQuery(query.id);
-        return;
-    }
-    
-    if (action === 'show_test') {
-        showTest(chatId);
         bot.answerCallbackQuery(query.id);
         return;
     }
@@ -366,33 +346,7 @@ bot.on('callback_query', async (query) => {
         return;
     }
     
-    // ========== ПОКУПКА ==========
-    if (action === 'buy_test') {
-        const priv = PRIVILEGES.test;
-        try {
-            await bot.sendInvoice(
-                chatId,
-                priv.name,
-                'Тестовая привилегия за 1 звезду',
-                JSON.stringify({ 
-                    item: 'priv_test',
-                    userId: userId,
-                    time: Date.now()
-                }),
-                undefined,
-                'XTR',
-                [{ label: priv.name, amount: priv.price }],
-                { start_parameter: 'test_' + Date.now() }
-            );
-            console.log(`💰 Счет создан: ${priv.name} (${priv.price} ⭐)`);
-        } catch (e) {
-            console.log('❌ Ошибка:', e.message);
-            bot.sendMessage(chatId, '❌ Ошибка: ' + e.message);
-        }
-        bot.answerCallbackQuery(query.id);
-        return;
-    }
-    
+    // ========== ПОКУПКА КИТОВ ==========
     if (action.startsWith('buy_kit_')) {
         const kitKey = action.replace('buy_kit_', '');
         const kit = KITS[kitKey];
@@ -422,6 +376,7 @@ bot.on('callback_query', async (query) => {
         return;
     }
     
+    // ========== ПОКУПКА ПРИВИЛЕГИЙ ==========
     if (action.startsWith('buy_priv_')) {
         const privKey = action.replace('buy_priv_', '');
         const priv = PRIVILEGES[privKey];
@@ -431,7 +386,7 @@ bot.on('callback_query', async (query) => {
             await bot.sendInvoice(
                 chatId,
                 priv.name,
-                `Покупка ${priv.name}`,
+                `Покупка ${priv.name} со скидкой 50%`,
                 JSON.stringify({ 
                     item: 'priv_' + privKey,
                     userId: userId,
@@ -518,11 +473,12 @@ bot.on('callback_query', async (query) => {
             `2️⃣ Выбери товар\n` +
             `3️⃣ Оплати звездами\n` +
             `4️⃣ Получи на сервере!\n\n` +
-            `🧪 <b>Тестовая привилегия за 1 ⭐</b>\n` +
-            `Проверь работу бота!\n\n` +
+            `🔥 <b>СКИДКА 50% НА ВСЕ ПРИВИЛЕГИИ!</b>\n\n` +
             `⚠️ <b>Важно:</b>\n` +
             `• Оплата работает ТОЛЬКО в мобильном Telegram\n` +
-            `• Нужна версия Telegram 10.0+`,
+            `• Нужна версия Telegram 10.0+\n` +
+            `• Stars должны быть доступны в регионе\n\n` +
+            `📞 По всем вопросам: @gokot`,
             { parse_mode: 'HTML' }
         );
         bot.answerCallbackQuery(query.id);
@@ -545,6 +501,7 @@ bot.on('successful_payment', (msg) => {
     const chatId = msg.chat.id;
     const userId = msg.from.id;
     const username = msg.from.username || msg.from.first_name;
+    const firstName = msg.from.first_name || 'Игрок';
     const payment = msg.successful_payment;
     
     console.log(`💎 УСПЕШНАЯ ОПЛАТА!`);
@@ -558,7 +515,7 @@ bot.on('successful_payment', (msg) => {
         // Ищем товар
         let item = null;
         let itemType = '';
-        let isTest = false;
+        let discountText = '';
         
         if (itemKey.startsWith('kit_')) {
             const kitId = itemKey.replace('kit_', '');
@@ -568,7 +525,9 @@ bot.on('successful_payment', (msg) => {
             const privId = itemKey.replace('priv_', '');
             item = PRIVILEGES[privId];
             itemType = 'Привилегия';
-            if (privId === 'test') isTest = true;
+            if (item.discount) {
+                discountText = ` (со скидкой 50%)`;
+            }
         }
         
         if (!item) {
@@ -589,33 +548,38 @@ bot.on('successful_payment', (msg) => {
             amount: payment.total_amount
         });
         
-        let text = `✅ <b>Оплата прошла успешно!</b>\n\n` +
-            `📦 ${item.emoji} ${item.name}\n` +
-            `⭐ Списано: ${payment.total_amount} звезд\n` +
-            `👤 Игрок: ${username}\n\n`;
+        // ========== УВЕДОМЛЕНИЕ АДМИНИСТРАТОРУ ==========
+        const adminText = 
+            `✅ <b>НОВАЯ ПОКУПКА!</b>\n\n` +
+            `👤 <b>Игрок:</b> ${firstName} (@${username || 'нет юзернейма'})\n` +
+            `🆔 <b>ID:</b> ${userId}\n` +
+            `📦 <b>Товар:</b> ${item.emoji} ${item.name}${discountText}\n` +
+            `📋 <b>Тип:</b> ${itemType}\n` +
+            `⭐ <b>Цена:</b> ${payment.total_amount} звезд\n` +
+            `🆔 <b>Платеж:</b> ${payment.telegram_payment_charge_id}\n` +
+            `📅 <b>Время:</b> ${new Date().toLocaleString()}\n\n` +
+            `👤 <b>Связь с игроком:</b> @${username || 'нет юзернейма'}`;
         
-        if (isTest) {
-            text += `🧪 <b>ТЕСТ ПРОЙДЕН УСПЕШНО!</b>\n`;
-            text += `🎉 Бот работает корректно!\n\n`;
-        }
-        
-        text += `🎮 <b>Товар выдан на сервер!</b>`;
-        
-        bot.sendMessage(chatId, text, { parse_mode: 'HTML' });
-        
-        // Уведомление админу
-        bot.sendMessage(ADMIN_ID,
-            `✅ <b>${isTest ? '🧪 ТЕСТОВАЯ' : ''} НОВАЯ ПОКУПКА!</b>\n\n` +
-            `👤 Игрок: ${username} (ID: ${userId})\n` +
-            `📦 Товар: ${item.name}\n` +
-            `⭐ Цена: ${payment.total_amount} звезд\n` +
-            `📅 Время: ${new Date().toLocaleString()}`,
+        // Отправляем админу с упоминанием @gokot
+        bot.sendMessage(ADMIN_ID, 
+            `@gokot\n\n${adminText}`, 
             { parse_mode: 'HTML' }
         );
         
+        // ========== УВЕДОМЛЕНИЕ ПОКУПАТЕЛЮ ==========
+        const userText = 
+            `✅ <b>Оплата прошла успешно!</b>\n\n` +
+            `📦 ${item.emoji} ${item.name}\n` +
+            `⭐ Списано: ${payment.total_amount} звезд\n` +
+            `👤 Игрок: ${firstName}\n\n` +
+            `🎮 <b>Товар выдан на сервер!</b>\n\n` +
+            `📞 По вопросам: @gokot`;
+        
+        bot.sendMessage(chatId, userText, { parse_mode: 'HTML' });
+        
     } catch (e) {
         console.log('❌ Ошибка обработки:', e.message);
-        bot.sendMessage(chatId, '❌ Ошибка обработки платежа');
+        bot.sendMessage(chatId, '❌ Ошибка обработки платежа. Напиши @gokot');
     }
 });
 
@@ -626,7 +590,9 @@ bot.on('polling_error', (error) => {
 
 console.log('✅ Бот готов!');
 console.log('━━━━━━━━━━━━━━━━━━━━━');
-console.log('🧪 Тестовая привилегия за 1 ⭐ доступна!');
 console.log('📋 Доступные разделы:');
 console.log('   ⚔️ PvP Киты');
-console.log('   👑 Привилегии');
+console.log('   👑 Привилегии 🔥-50%');
+console.log('━━━━━━━━━━━━━━━━━━━━━');
+console.log('🔥 СКИДКА 50% НА ВСЕ ПРИВИЛЕГИИ!');
+console.log('📞 Уведомления админу: @gokot');
