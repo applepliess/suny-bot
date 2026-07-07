@@ -1,9 +1,10 @@
 const TelegramBot = require('node-telegram-bot-api');
 
+// ========== ТВОИ ДАННЫЕ ==========
 const BOT_TOKEN = '8792137358:AAHMO9wKGVKvXgYsqOz5cSN43xdSpUzrknk';
 const ADMIN_ID = '8579640456';
 
-// ========== НАСТРОЙКА КИТОВ ==========
+// ========== НАСТРОЙКА КИТОВ С ФОТО ==========
 const KITS = {
     pvp: {
         id: 'pvp',
@@ -270,7 +271,7 @@ function showKitDetail(chatId, kitKey) {
     });
 }
 
-// ========== ПОКАЗ ПРИВИЛЕГИЙ (БЕЗ ЛИШНЕЙ НАДПИСИ) ==========
+// ========== ПОКАЗ ПРИВИЛЕГИЙ (БЕЗ НАДПИСИ) ==========
 function showPrivileges(chatId) {
     let text = `👑 <b>Привилегии</b>\n\n`;
     text += `🔥 <b>СКИДКА 50% НА:</b> D.ADMIN, PASXA, MONSTER\n`;
