@@ -6,12 +6,12 @@ const fs = require('fs');
 const bot = new Telegraf(process.env.BOT_TOKEN);
 
 // ===== НАСТРОЙКИ =====
-const USERNAME_LENGTH = 6;            // теперь 6 символов
+const USERNAME_LENGTH = 7;            // теперь 7 символов (гарантированно будут свободные)
 const HOW_MANY = 5;
 const CHANCE_READABLE = 0.4;
 const MAX_GENERATIONS = 5;
 const COOLDOWN_MS = 24 * 60 * 60 * 1000;
-const MAX_ATTEMPTS_PER_GENERATION = 50; // больше попыток
+const MAX_ATTEMPTS_PER_GENERATION = 100; // больше попыток
 const ADMIN_IDS = [123456789, 987654321]; // замените на свои ID
 
 // ===== БУКВЫ ДЛЯ ГЕНЕРАЦИИ =====
@@ -48,30 +48,25 @@ function generateRandom() {
 }
 
 function generateReadable() {
-  // Генерируем читаемое имя длиной 6 символов
   let result = '';
-  if (Math.random() < 0.5) {
-    // Схема CVCVCV (согласная-гласная-согласная-гласная-согласная-гласная)
-    for (let i = 0; i < 6; i++) {
-      if (i % 2 === 0) {
-        result += CONSONANTS.charAt(Math.floor(Math.random() * CONSONANTS.length));
-      } else {
-        result += VOWELS.charAt(Math.floor(Math.random() * VOWELS.length));
-      }
+  // Для 7 символов используем разные паттерны
+  const patterns = [
+    'CVCVCVC', // согласная-гласная...
+    'CVCCVCC',
+    'VCVCVCV'
+  ];
+  const pattern = patterns[Math.floor(Math.random() * patterns.length)];
+  for (let i = 0; i < pattern.length; i++) {
+    if (pattern[i] === 'C') {
+      result += CONSONANTS.charAt(Math.floor(Math.random() * CONSONANTS.length));
+    } else {
+      result += VOWELS.charAt(Math.floor(Math.random() * VOWELS.length));
     }
-  } else {
-    // Схема CVCCVC (согласная-гласная-согласная-согласная-гласная-согласная)
-    result += CONSONANTS.charAt(Math.floor(Math.random() * CONSONANTS.length));
-    result += VOWELS.charAt(Math.floor(Math.random() * VOWELS.length));
-    result += CONSONANTS.charAt(Math.floor(Math.random() * CONSONANTS.length));
-    result += CONSONANTS.charAt(Math.floor(Math.random() * CONSONANTS.length));
-    result += VOWELS.charAt(Math.floor(Math.random() * VOWELS.length));
-    result += CONSONANTS.charAt(Math.floor(Math.random() * CONSONANTS.length));
   }
-  // Иногда добавляем популярное окончание
+  // Иногда добавляем окончание
   if (Math.random() < 0.3) {
     const ending = ENDINGS[Math.floor(Math.random() * ENDINGS.length)];
-    result = result.slice(0, 4) + ending; // первые 4 + окончание из 2 = 6
+    result = result.slice(0, 5) + ending; // первые 5 + окончание = 7
   }
   return result;
 }
@@ -80,20 +75,28 @@ function generateOne() {
   return Math.random() < CHANCE_READABLE ? generateReadable() : generateRandom();
 }
 
-// ===== ПРОВЕРКА ЗАНЯТОСТИ =====
-async function isUsernameTaken(username) {
-  try {
-    const url = `https://t.me/${username}`;
-    const response = await axios.get(url, {
-      timeout: 8000,
-      maxRedirects: 0,
-      validateStatus: false,
-    });
-    return response.status !== 404;
-  } catch (error) {
-    console.error(`Ошибка проверки ${username}:`, error.message);
-    return true;
+// ===== ПРОВЕРКА ЗАНЯТОСТИ (с повторными попытками) =====
+async function isUsernameTaken(username, retries = 2) {
+  for (let i = 0; i <= retries; i++) {
+    try {
+      const url = `https://t.me/${username}`;
+      const response = await axios.get(url, {
+        timeout: 10000,
+        maxRedirects: 0,
+        validateStatus: false,
+      });
+      // Если статус 404 – имя свободно
+      return response.status !== 404;
+    } catch (error) {
+      if (i === retries) {
+        console.error(`Ошибка проверки ${username}:`, error.message);
+        return true; // при ошибке считаем занятым
+      }
+      // Ждём 1 секунду перед повторной попыткой
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
   }
+  return true;
 }
 
 // ===== ЛИМИТЫ =====
@@ -166,8 +169,8 @@ async function handleGenerate(ctx) {
       found.push(name);
     }
 
-    // Анимация – обновляем сообщение каждые 2 попытки
-    if (attempts % 2 === 0 || attempts === MAX_ATTEMPTS_PER_GENERATION) {
+    // Обновляем анимацию каждые 3 попытки
+    if (attempts % 3 === 0 || attempts === MAX_ATTEMPTS_PER_GENERATION) {
       const icon = spinner[spinIndex % spinner.length];
       spinIndex++;
       await ctx.telegram.editMessageText(
@@ -182,22 +185,45 @@ async function handleGenerate(ctx) {
   // Удаляем статусное сообщение
   await ctx.telegram.deleteMessage(statusMsg.chat.id, statusMsg.message_id).catch(() => {});
 
-  // Формируем ответ
-  let reply;
+  // Если ничего не найдено
   if (found.length === 0) {
-    reply = `😞 Не удалось найти ни одного свободного ${USERNAME_LENGTH}-символьного username.\n` +
-            `Попробуйте ещё раз или измените длину (сейчас ${USERNAME_LENGTH}).\n` +
-            `Все короткие имена могут быть заняты.`;
-  } else {
-    reply = `✨ Нашёл ${found.length} свободных username (${USERNAME_LENGTH} символов):\n` +
-            found.map(n => `@${n}`).join('\n');
-    if (found.length < HOW_MANY) {
-      reply += `\n\n⚠️ Удалось найти только ${found.length} из ${HOW_MANY} (остальные заняты).`;
-    }
+    await ctx.reply(
+      `😞 Не удалось найти ни одного свободного ${USERNAME_LENGTH}-символьного username.\n` +
+      `Попробуйте ещё раз или измените длину (сейчас ${USERNAME_LENGTH}).`,
+      {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🎲 Сгенерировать ещё', callback_data: 'generate_more' }],
+            [{ text: '📢 Подписаться на канал', url: 'https://t.me/SunyWorld_me' }],
+            [{ text: '⭐️ Купить бесконечную генерацию', callback_data: 'buy_unlimited' }]
+          ]
+        }
+      }
+    );
+    return;
   }
 
+  // ===== ЭФФЕКТ ПОСЛЕ НАХОЖДЕНИЯ =====
+  const effectMessages = [
+    '🎉🎊 Ура! Нашёл свободные имена! 🎊🎉',
+    '✨💫 Вот они, блестящие! 💫✨',
+    '🏆 Отличный улов! 🏆',
+    '🌟 Нашёл для вас самые крутые! 🌟'
+  ];
+  const randomEffect = effectMessages[Math.floor(Math.random() * effectMessages.length)];
+
+  // Отправляем поздравление с конфетти (эмодзи)
   await ctx.reply(
-    reply,
+    `🎊🎉 ${randomEffect} 🎉🎊\n\n` +
+    `✨ Нашёл ${found.length} свободных username (${USERNAME_LENGTH} символов):\n` +
+    found.map(n => `@${n}`).join('\n') +
+    (found.length < HOW_MANY ? `\n\n⚠️ Удалось найти только ${found.length} из ${HOW_MANY} (остальные заняты).` : '') +
+    `\n\n🔥 Забирайте, пока не заняли!`
+  );
+
+  // Отправляем кнопки для дальнейших действий
+  await ctx.reply(
+    `Что делаем дальше?`,
     {
       reply_markup: {
         inline_keyboard: [
@@ -284,7 +310,7 @@ bot.action('back_to_menu', async (ctx) => {
 
 // ===== ЗАПУСК =====
 bot.launch()
-  .then(() => console.log('✅ Бот запущен (6 символов, анимация)'))
+  .then(() => console.log('✅ Бот запущен (7 символов, эффект, улучшенная проверка)'))
   .catch(err => console.error('❌ Ошибка:', err));
 
 process.once('SIGINT', () => bot.stop('SIGINT'));
