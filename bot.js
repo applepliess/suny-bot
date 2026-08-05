@@ -77,7 +77,7 @@ function generateUsernames(count) {
   return Array.from(set);
 }
 
-// ===== ПРОВЕРКА ЗАНЯТОСТИ ЧЕРЕЗ t.me =====
+// ===== ПРОВЕРКА ЗАНЯТОСТИ =====
 async function isUsernameTaken(username) {
   try {
     const url = `https://t.me/${username}`;
@@ -86,7 +86,7 @@ async function isUsernameTaken(username) {
       maxRedirects: 0,
       validateStatus: false,
     });
-    return response.status !== 404; // если не 404 – значит занят
+    return response.status !== 404;
   } catch (error) {
     console.error(`Ошибка проверки ${username}:`, error.message);
     return true; // при ошибке считаем занятым
@@ -127,10 +127,10 @@ function checkAndUpdateUser(userId) {
   };
 }
 
-// Храним последние сгенерированные имена для проверки
+// Храним последние сгенерированные имена
 let lastGenerated = [];
 
-// ===== ГЛАВНАЯ ФУНКЦИЯ ГЕНЕРАЦИИ =====
+// ===== ОСНОВНАЯ ГЕНЕРАЦИЯ =====
 async function handleGenerate(ctx) {
   const userId = ctx.from.id;
 
@@ -147,7 +147,7 @@ async function handleGenerate(ctx) {
   }
 
   const names = generateUsernames(HOW_MANY);
-  lastGenerated = names; // сохраняем для проверки
+  lastGenerated = names;
 
   const reply = names.map(n => `@${n}`).join('\n');
 
@@ -166,7 +166,7 @@ async function handleGenerate(ctx) {
   );
 }
 
-// ===== ОБРАБОТКА ПРОВЕРКИ ЗАНЯТОСТИ =====
+// ===== ПРОВЕРКА ЗАНЯТОСТИ =====
 async function handleCheckAvailability(ctx) {
   await ctx.answerCbQuery();
   if (lastGenerated.length === 0) {
@@ -192,11 +192,6 @@ async function handleCheckAvailability(ctx) {
     `📊 Результаты проверки:\n${reply}`
   );
 
-  // Предложим сгенерировать ещё, если все заняты
-  const allTaken = lastGenerated.every(async (name) => await isUsernameTaken(name));
-  // Но так как мы уже проверили, можно просто проверить по сохранённым результатам
-  // Проще: если все заняты, предложим сгенерировать новые.
-  // Для простоты добавим кнопку "Сгенерировать ещё" в ответ.
   await ctx.reply(
     `Если хотите новые имена, нажмите "Сгенерировать ещё".`,
     {
