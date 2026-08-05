@@ -6,13 +6,13 @@ const fs = require('fs');
 const bot = new Telegraf(process.env.BOT_TOKEN);
 
 // ===== НАСТРОЙКИ =====
-const USERNAME_LENGTH = 5;
+const USERNAME_LENGTH = 6;          // теперь 6 символов (шанс найти свободный выше)
 const HOW_MANY = 5;
 const CHANCE_READABLE = 0.4;
-const MAX_GENERATIONS = 5;          // суточный лимит генераций
+const MAX_GENERATIONS = 5;
 const COOLDOWN_MS = 24 * 60 * 60 * 1000;
-const MAX_ATTEMPTS_PER_GENERATION = 30; // сколько имён проверить, чтобы найти 5 свободных
-const ADMIN_IDS = [123456789, 987654321]; // замените на свои ID
+const MAX_ATTEMPTS_PER_GENERATION = 100; // больше попыток
+const ADMIN_IDS = [123456789, 987654321];
 
 // ===== БУКВЫ ДЛЯ ГЕНЕРАЦИИ =====
 const CONSONANTS = 'bcdfghjklmnpqrstvwxyz';
@@ -36,6 +36,9 @@ function saveData(data) {
 }
 
 let data = loadData();
+
+// ===== КЭШ ПРОВЕРЕННЫХ ИМЁН (за один сеанс) =====
+const checkedCache = new Map();
 
 // ===== ГЕНЕРАЦИЯ ИМЁН =====
 function generateRandom() {
@@ -68,8 +71,13 @@ function generateOne() {
   return Math.random() < CHANCE_READABLE ? generateReadable() : generateRandom();
 }
 
-// ===== ПРОВЕРКА ЗАНЯТОСТИ =====
+// ===== ПРОВЕРКА ЗАНЯТОСТИ С КЭШЕМ =====
 async function isUsernameTaken(username) {
+  // Проверяем кэш
+  if (checkedCache.has(username)) {
+    return checkedCache.get(username);
+  }
+
   try {
     const url = `https://t.me/${username}`;
     const response = await axios.get(url, {
@@ -77,10 +85,14 @@ async function isUsernameTaken(username) {
       maxRedirects: 0,
       validateStatus: false,
     });
-    return response.status !== 404;
+    const taken = response.status !== 404;
+    checkedCache.set(username, taken);
+    return taken;
   } catch (error) {
     console.error(`Ошибка проверки ${username}:`, error.message);
-    return true; // при ошибке считаем занятым, чтобы не давать ложных надежд
+    // При ошибке считаем занятым и кэшируем, чтобы не повторять
+    checkedCache.set(username, true);
+    return true;
   }
 }
 
@@ -122,7 +134,6 @@ function checkAndUpdateUser(userId) {
 async function handleGenerate(ctx) {
   const userId = ctx.from.id;
 
-  // Проверка лимитов
   const check = checkAndUpdateUser(userId);
   if (!check.allowed) {
     const buttons = [
@@ -135,7 +146,6 @@ async function handleGenerate(ctx) {
     return;
   }
 
-  // Показываем статус
   const statusMsg = await ctx.reply('🔍 Генерирую и проверяю свободные username...');
 
   let found = [];
@@ -145,7 +155,6 @@ async function handleGenerate(ctx) {
   while (found.length < HOW_MANY && attempts < MAX_ATTEMPTS_PER_GENERATION) {
     attempts++;
     let name = generateOne();
-    // Избегаем дубликатов
     if (usedNames.has(name)) continue;
     usedNames.add(name);
 
@@ -154,8 +163,7 @@ async function handleGenerate(ctx) {
       found.push(name);
     }
 
-    // Обновляем статус каждые 3 попытки
-    if (attempts % 3 === 0 || attempts === MAX_ATTEMPTS_PER_GENERATION) {
+    if (attempts % 10 === 0 || attempts === MAX_ATTEMPTS_PER_GENERATION) {
       await ctx.telegram.editMessageText(
         statusMsg.chat.id,
         statusMsg.message_id,
@@ -168,7 +176,7 @@ async function handleGenerate(ctx) {
   // Формируем ответ
   let reply;
   if (found.length === 0) {
-    reply = '😞 Не удалось найти ни одного свободного 5-символьного username. Попробуйте ещё раз.';
+    reply = '😞 Не удалось найти ни одного свободного username длиной ' + USERNAME_LENGTH + '. Попробуйте ещё раз.';
   } else {
     reply = `✨ Нашёл ${found.length} свободных username:\n` + found.map(n => `@${n}`).join('\n');
     if (found.length < HOW_MANY) {
@@ -176,10 +184,8 @@ async function handleGenerate(ctx) {
     }
   }
 
-  // Удаляем статусное сообщение
   await ctx.telegram.deleteMessage(statusMsg.chat.id, statusMsg.message_id).catch(() => {});
 
-  // Отправляем результат с кнопками
   await ctx.reply(
     reply,
     {
@@ -213,7 +219,7 @@ async function showBuyInfo(ctx) {
 // ===== КОМАНДЫ =====
 bot.start((ctx) => {
   ctx.reply(
-    `👋 Привет! Я генерирую 5-символьные username и сразу проверяю, свободны ли они.\n` +
+    `👋 Привет! Я генерирую ${USERNAME_LENGTH}-символьные username и сразу проверяю, свободны ли они.\n` +
     `У вас есть ${MAX_GENERATIONS} генераций в сутки.\n` +
     `Каждая генерация пытается найти ${HOW_MANY} свободных имён.`,
     {
@@ -268,7 +274,7 @@ bot.action('back_to_menu', async (ctx) => {
 
 // ===== ЗАПУСК =====
 bot.launch()
-  .then(() => console.log('✅ Бот запущен (автопроверка занятости)'))
+  .then(() => console.log('✅ Бот запущен (6 символов, автопроверка)'))
   .catch(err => console.error('❌ Ошибка:', err));
 
 process.once('SIGINT', () => bot.stop('SIGINT'));
