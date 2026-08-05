@@ -9,8 +9,9 @@ const bot = new Telegraf(process.env.BOT_TOKEN);
 const USERNAME_LENGTH = 5;
 const HOW_MANY = 5;
 const CHANCE_READABLE = 0.4;
-const MAX_GENERATIONS = 5;
+const MAX_GENERATIONS = 5;          // суточный лимит генераций
 const COOLDOWN_MS = 24 * 60 * 60 * 1000;
+const MAX_ATTEMPTS_PER_GENERATION = 30; // сколько имён проверить, чтобы найти 5 свободных
 const ADMIN_IDS = [123456789, 987654321]; // замените на свои ID
 
 // ===== БУКВЫ ДЛЯ ГЕНЕРАЦИИ =====
@@ -63,18 +64,8 @@ function generateReadable() {
   return result;
 }
 
-function generateUsernames(count) {
-  const set = new Set();
-  while (set.size < count) {
-    let name;
-    if (Math.random() < CHANCE_READABLE) {
-      name = generateReadable();
-    } else {
-      name = generateRandom();
-    }
-    set.add(name);
-  }
-  return Array.from(set);
+function generateOne() {
+  return Math.random() < CHANCE_READABLE ? generateReadable() : generateRandom();
 }
 
 // ===== ПРОВЕРКА ЗАНЯТОСТИ =====
@@ -89,7 +80,7 @@ async function isUsernameTaken(username) {
     return response.status !== 404;
   } catch (error) {
     console.error(`Ошибка проверки ${username}:`, error.message);
-    return true; // при ошибке считаем занятым
+    return true; // при ошибке считаем занятым, чтобы не давать ложных надежд
   }
 }
 
@@ -127,17 +118,15 @@ function checkAndUpdateUser(userId) {
   };
 }
 
-// Храним последние сгенерированные имена
-let lastGenerated = [];
-
-// ===== ОСНОВНАЯ ГЕНЕРАЦИЯ =====
+// ===== ОСНОВНАЯ ГЕНЕРАЦИЯ С АВТОПРОВЕРКОЙ =====
 async function handleGenerate(ctx) {
   const userId = ctx.from.id;
 
+  // Проверка лимитов
   const check = checkAndUpdateUser(userId);
   if (!check.allowed) {
     const buttons = [
-      [{ text: '🎲 Сгенерировать ещё', callback_data: 'generate_more' }]
+      [{ text: '🎲 Попробовать позже', callback_data: 'generate_more' }]
     ];
     if (check.showBuyButton) {
       buttons.push([{ text: '⭐️ Купить бесконечную генерацию', callback_data: 'buy_unlimited' }]);
@@ -146,58 +135,59 @@ async function handleGenerate(ctx) {
     return;
   }
 
-  const names = generateUsernames(HOW_MANY);
-  lastGenerated = names;
+  // Показываем статус
+  const statusMsg = await ctx.reply('🔍 Генерирую и проверяю свободные username...');
 
-  const reply = names.map(n => `@${n}`).join('\n');
+  let found = [];
+  let attempts = 0;
+  const usedNames = new Set();
 
+  while (found.length < HOW_MANY && attempts < MAX_ATTEMPTS_PER_GENERATION) {
+    attempts++;
+    let name = generateOne();
+    // Избегаем дубликатов
+    if (usedNames.has(name)) continue;
+    usedNames.add(name);
+
+    const taken = await isUsernameTaken(name);
+    if (!taken) {
+      found.push(name);
+    }
+
+    // Обновляем статус каждые 3 попытки
+    if (attempts % 3 === 0 || attempts === MAX_ATTEMPTS_PER_GENERATION) {
+      await ctx.telegram.editMessageText(
+        statusMsg.chat.id,
+        statusMsg.message_id,
+        null,
+        `🔍 Ищу свободные имена... (проверено ${attempts}, найдено ${found.length})`
+      ).catch(() => {});
+    }
+  }
+
+  // Формируем ответ
+  let reply;
+  if (found.length === 0) {
+    reply = '😞 Не удалось найти ни одного свободного 5-символьного username. Попробуйте ещё раз.';
+  } else {
+    reply = `✨ Нашёл ${found.length} свободных username:\n` + found.map(n => `@${n}`).join('\n');
+    if (found.length < HOW_MANY) {
+      reply += `\n\n⚠️ Удалось найти только ${found.length} из ${HOW_MANY} (остальные заняты).`;
+    }
+  }
+
+  // Удаляем статусное сообщение
+  await ctx.telegram.deleteMessage(statusMsg.chat.id, statusMsg.message_id).catch(() => {});
+
+  // Отправляем результат с кнопками
   await ctx.reply(
-    `✨ Вот ${HOW_MANY} случайных username:\n${reply}`,
+    reply,
     {
       reply_markup: {
         inline_keyboard: [
           [{ text: '🎲 Сгенерировать ещё', callback_data: 'generate_more' }],
-          [{ text: '🔍 Проверить занятость', callback_data: 'check_availability' }],
           [{ text: '📢 Подписаться на канал', url: 'https://t.me/SunyWorld_me' }],
           [{ text: '⭐️ Купить бесконечную генерацию', callback_data: 'buy_unlimited' }]
-        ]
-      }
-    }
-  );
-}
-
-// ===== ПРОВЕРКА ЗАНЯТОСТИ =====
-async function handleCheckAvailability(ctx) {
-  await ctx.answerCbQuery();
-  if (lastGenerated.length === 0) {
-    await ctx.reply('❌ Нет имён для проверки. Сначала сгенерируйте их.');
-    return;
-  }
-
-  const statusMsg = await ctx.reply('🔍 Проверяю занятость имён... Подождите.');
-
-  const results = [];
-  for (const name of lastGenerated) {
-    const taken = await isUsernameTaken(name);
-    const status = taken ? '❌ занят' : '✅ свободен';
-    results.push(`@${name} — ${status}`);
-  }
-
-  const reply = results.join('\n');
-
-  await ctx.telegram.editMessageText(
-    statusMsg.chat.id,
-    statusMsg.message_id,
-    null,
-    `📊 Результаты проверки:\n${reply}`
-  );
-
-  await ctx.reply(
-    `Если хотите новые имена, нажмите "Сгенерировать ещё".`,
-    {
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: '🎲 Сгенерировать ещё', callback_data: 'generate_more' }]
         ]
       }
     }
@@ -223,9 +213,9 @@ async function showBuyInfo(ctx) {
 // ===== КОМАНДЫ =====
 bot.start((ctx) => {
   ctx.reply(
-    `👋 Привет! Я генерирую 5-символьные username.\n` +
-    `У вас есть ${MAX_GENERATIONS} генераций в сутки.\n\n` +
-    `Подпишитесь на наш канал (не обязательно для генерации).`,
+    `👋 Привет! Я генерирую 5-символьные username и сразу проверяю, свободны ли они.\n` +
+    `У вас есть ${MAX_GENERATIONS} генераций в сутки.\n` +
+    `Каждая генерация пытается найти ${HOW_MANY} свободных имён.`,
     {
       reply_markup: {
         inline_keyboard: [
@@ -267,10 +257,6 @@ bot.action('generate_more', async (ctx) => {
   await handleGenerate(ctx);
 });
 
-bot.action('check_availability', async (ctx) => {
-  await handleCheckAvailability(ctx);
-});
-
 bot.action('buy_unlimited', async (ctx) => {
   await showBuyInfo(ctx);
 });
@@ -282,7 +268,7 @@ bot.action('back_to_menu', async (ctx) => {
 
 // ===== ЗАПУСК =====
 bot.launch()
-  .then(() => console.log('✅ Бот запущен (с проверкой занятости)'))
+  .then(() => console.log('✅ Бот запущен (автопроверка занятости)'))
   .catch(err => console.error('❌ Ошибка:', err));
 
 process.once('SIGINT', () => bot.stop('SIGINT'));
