@@ -1,7 +1,7 @@
 {
   "name": "username-generator-bot",
   "version": "1.0.0",
-  "description": "Telegram bot with subscription, cooldown and Stars payment",
+  "description": "Telegram bot with subscription and manual purchase info",
   "main": "bot.js",
   "scripts": {
     "start": "node bot.js"
