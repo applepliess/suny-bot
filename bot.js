@@ -7,15 +7,22 @@ const bot = new Telegraf(process.env.BOT_TOKEN);
 // ===== НАСТРОЙКИ =====
 const USERNAME_LENGTH = 5;
 const HOW_MANY = 5;
-const CHANCE_READABLE = 0.4;
-const MAX_GENERATIONS = 5;
-const COOLDOWN_MS = 24 * 60 * 60 * 1000;
-const ADMIN_IDS = [123456789, 987654321]; // замените на свои ID
+const CHANCE_READABLE = 0.4;            // для обычной генерации
 
-// ===== БУКВЫ ДЛЯ ГЕНЕРАЦИИ =====
+// Лимиты
+const MAX_REGULAR = 5;   // обычная генерация – 5 раз в сутки
+const MAX_BEAUTIFUL = 3; // красивая – 3 раза в сутки
+const COOLDOWN_MS = 24 * 60 * 60 * 1000;
+
+// Админы (замените на свои ID)
+const ADMIN_IDS = [123456789, 987654321];
+
+// ===== БУКВЫ ДЛЯ КРАСИВЫХ ИМЁН =====
 const CONSONANTS = 'bcdfghjklmnpqrstvwxyz';
 const VOWELS = 'aeiouy';
-const ENDINGS = ['ex', 'ox', 'ix', 'ux', 'ax', 'ez', 'oz'];
+// Словарные окончания и корни для реалистичности
+const ROOTS = ['gok', 'dob', 'kiv', 'zep', 'ram', 'lun', 'sol', 'mir', 'tor', 'fel', 'kes', 'nix', 'vox', 'zax'];
+const ENDINGS = ['ot', 'ex', 'ox', 'ix', 'ux', 'az', 'ez', 'oz', 'ar', 'er'];
 
 // ===== РАБОТА С JSON =====
 const DATA_FILE = 'data.json';
@@ -35,7 +42,7 @@ function saveData(data) {
 
 let data = loadData();
 
-// ===== ГЕНЕРАЦИЯ ИМЁН =====
+// ===== ГЕНЕРАЦИЯ СЛУЧАЙНОГО 5-ЗНАЧНОГО =====
 function generateRandom() {
   const chars = 'abcdefghijklmnopqrstuvwxyz0123456789_';
   let result = '';
@@ -45,29 +52,31 @@ function generateRandom() {
   return result;
 }
 
-function generateReadable() {
-  const pattern = Math.random() < 0.5 ? 'CVCVC' : 'VCVCV';
-  let result = '';
-  for (let i = 0; i < pattern.length; i++) {
-    if (pattern[i] === 'C') {
-      result += CONSONANTS.charAt(Math.floor(Math.random() * CONSONANTS.length));
-    } else {
-      result += VOWELS.charAt(Math.floor(Math.random() * VOWELS.length));
-    }
+// ===== ГЕНЕРАЦИЯ ЧИТАЕМОГО (СЛОВАРНОГО) ИМЕНИ =====
+function generateBeautiful() {
+  // Берём корень + окончание, чтобы получить 5 букв
+  const root = ROOTS[Math.floor(Math.random() * ROOTS.length)];
+  let ending = ENDINGS[Math.floor(Math.random() * ENDINGS.length)];
+  // Если корень + окончание > 5, обрезаем или подбираем
+  let name = root + ending;
+  if (name.length > USERNAME_LENGTH) {
+    name = name.slice(0, USERNAME_LENGTH);
+  } else if (name.length < USERNAME_LENGTH) {
+    // Добавляем случайную гласную в середину
+    const pos = Math.floor(name.length / 2);
+    name = name.slice(0, pos) + VOWELS[Math.floor(Math.random() * VOWELS.length)] + name.slice(pos);
+    name = name.slice(0, USERNAME_LENGTH);
   }
-  if (Math.random() < 0.3) {
-    const ending = ENDINGS[Math.floor(Math.random() * ENDINGS.length)];
-    result = result.slice(0, 3) + ending;
-  }
-  return result;
+  return name;
 }
 
-function generateUsernames(count) {
+// ===== ГЕНЕРАЦИЯ НАБОРА (обычная) =====
+function generateRegular(count) {
   const set = new Set();
   while (set.size < count) {
     let name;
     if (Math.random() < CHANCE_READABLE) {
-      name = generateReadable();
+      name = generateBeautiful();
     } else {
       name = generateRandom();
     }
@@ -76,27 +85,48 @@ function generateUsernames(count) {
   return Array.from(set);
 }
 
-// ===== ЛИМИТЫ =====
-function checkAndUpdateUser(userId) {
+// ===== ГЕНЕРАЦИЯ НАБОРА (только красивые) =====
+function generateBeautifulSet(count) {
+  const set = new Set();
+  while (set.size < count) {
+    const name = generateBeautiful();
+    set.add(name);
+  }
+  return Array.from(set);
+}
+
+// ===== ПРОВЕРКА ЛИМИТОВ =====
+function checkAndUpdateUser(userId, type) {
+  // Админы и премиум – без лимитов
   if (ADMIN_IDS.includes(userId)) return { allowed: true };
   if (data.users[userId]?.unlimited) return { allowed: true };
 
   const now = Date.now();
-  let user = data.users[userId];
-  if (!user || (now - user.lastTime) >= COOLDOWN_MS) {
-    data.users[userId] = { count: 0, lastTime: now };
+  const user = data.users[userId] || {};
+  const key = type === 'regular' ? 'regular' : 'beautiful';
+  const max = type === 'regular' ? MAX_REGULAR : MAX_BEAUTIFUL;
+  const lastKey = key + 'LastTime';
+  const countKey = key + 'Count';
+
+  // Если пользователь новый или прошло > 24ч – сбрасываем
+  if (!user[lastKey] || (now - user[lastKey]) >= COOLDOWN_MS) {
+    user[lastKey] = now;
+    user[countKey] = 0;
+    data.users[userId] = user;
     saveData(data);
     return { allowed: true };
   }
 
-  if (user.count < MAX_GENERATIONS) {
-    user.count += 1;
-    user.lastTime = now;
+  if (user[countKey] < max) {
+    user[countKey] += 1;
+    user[lastKey] = now; // обновляем время последнего действия
+    data.users[userId] = user;
     saveData(data);
     return { allowed: true };
   }
 
-  const nextReset = user.lastTime + COOLDOWN_MS;
+  // Лимит исчерпан
+  const nextReset = user[lastKey] + COOLDOWN_MS;
   const remaining = nextReset - now;
   const hours = Math.floor(remaining / (1000 * 60 * 60));
   const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
@@ -105,61 +135,61 @@ function checkAndUpdateUser(userId) {
 
   return {
     allowed: false,
-    message: `⛔ Вы исчерпали лимит (${MAX_GENERATIONS} генераций в сутки).\nПовторите через ${timeStr}.\n\nИли купите бесконечную генерацию у @gokot за 15⭐️.`,
-    showBuyButton: true
+    message: `⛔ Вы исчерпали суточный лимит (${max} раз).\nПовторите через ${timeStr}.`
   };
 }
 
-// ===== АНИМАЦИЯ (эффект печати с эмодзи) =====
-async function generateWithAnimation(ctx) {
+// ===== ОБЩАЯ ФУНКЦИЯ ГЕНЕРАЦИИ С АНИМАЦИЕЙ =====
+async function generateWithAnimation(ctx, generatorFn, typeLabel, limit) {
   const userId = ctx.from.id;
 
-  const check = checkAndUpdateUser(userId);
+  // Проверка лимитов
+  const check = checkAndUpdateUser(userId, typeLabel);
   if (!check.allowed) {
-    const buttons = [
-      [{ text: '🎲 Попробовать позже', callback_data: 'generate_more' }]
-    ];
-    if (check.showBuyButton) {
-      buttons.push([{ text: '⭐️ Купить бесконечную генерацию', callback_data: 'buy_unlimited' }]);
-    }
-    await ctx.reply(check.message, { reply_markup: { inline_keyboard: buttons } });
+    await ctx.reply(check.message);
     return;
   }
 
-  // Генерируем имена сразу (без проверки занятости)
-  const names = generateUsernames(HOW_MANY);
-  const formatted = names.map(n => `@${n}`).join('\n');
+  // Анимация
+  const statusMsg = await ctx.reply(`✨ Генерирую ${typeLabel} юзернеймы...`);
 
-  // Эффекты: массив иконок для анимации
-  const spinner = ['✨', '🌟', '💫', '⚡', '🔥', '🎆', '🎇', '🌈', '💥', '⭐'];
-  let msg = await ctx.reply('⏳ Генерирую крутые юзернеймы...');
+  const spinner = ['🌀', '🌟', '✨', '⭐', '🌙', '☀️', '💫', '⚡', '🎯', '🔥'];
+  let spinIndex = 0;
+  let elapsed = 0;
+  const interval = 300; // мс
 
-  // Анимация – обновляем сообщение 8 раз с разными иконками
-  for (let i = 0; i < 8; i++) {
-    const icon = spinner[i % spinner.length];
-    const dots = '.'.repeat(i % 4 + 1);
+  // Обновляем сообщение с анимацией 10 раз
+  for (let i = 0; i < 12; i++) {
+    const icon = spinner[spinIndex % spinner.length];
+    spinIndex++;
     await ctx.telegram.editMessageText(
-      msg.chat.id,
-      msg.message_id,
+      statusMsg.chat.id,
+      statusMsg.message_id,
       null,
-      `${icon} Генерирую крутые юзернеймы${dots}`
-    );
-    await new Promise(resolve => setTimeout(resolve, 200));
+      `${icon} Генерирую ${typeLabel} имена...\n${'▰'.repeat(i % 5)}${'▱'.repeat(5 - (i % 5))}`
+    ).catch(() => {});
+    await new Promise(resolve => setTimeout(resolve, interval));
   }
 
-  // Финальное сообщение с именами и эффектами
-  const finalMessage = 
-    `🎉🎊 **Вот ваши крутые юзернеймы!** 🎊🎉\n\n` +
-    `${formatted}\n\n` +
-    `✨ Забирайте, пока не заняли! ✨\n` +
-    `💎 Хотите ещё? Нажмите кнопку ниже.`;
+  // Генерируем имена
+  const names = generatorFn(HOW_MANY);
+  
+  // Удаляем статусное сообщение
+  await ctx.telegram.deleteMessage(statusMsg.chat.id, statusMsg.message_id).catch(() => {});
 
-  await ctx.telegram.editMessageText(
-    msg.chat.id,
-    msg.message_id,
-    null,
-    finalMessage,
-    { parse_mode: 'Markdown' }
+  // Финальный эффект (фейерверк)
+  const effectMessages = [
+    '🎉🔥 Вот они, забирайте! 🔥🎉',
+    '✨💫 Идеальные имена для вас! 💫✨',
+    '🏆 Топчик! Ловите! 🏆',
+    '🌟 Ваши новые юзернеймы! 🌟'
+  ];
+  const randomEffect = effectMessages[Math.floor(Math.random() * effectMessages.length)];
+
+  await ctx.reply(
+    `🎊 ${randomEffect}\n\n` +
+    names.map(n => `@${n}`).join('\n') +
+    `\n\n💡 Осталось использований на сегодня: ${limit - 1}`
   );
 
   // Кнопки
@@ -168,20 +198,30 @@ async function generateWithAnimation(ctx) {
     {
       reply_markup: {
         inline_keyboard: [
-          [{ text: '🎲 Сгенерировать ещё', callback_data: 'generate_more' }],
-          [{ text: '📢 Подписаться на канал', url: 'https://t.me/SunyWorld_me' }],
-          [{ text: '⭐️ Купить бесконечную генерацию', callback_data: 'buy_unlimited' }]
+          [{ text: '🎲 Ещё обычные', callback_data: 'generate_regular' }],
+          [{ text: '✨ Ещё красивые', callback_data: 'generate_beautiful' }],
+          [{ text: '📢 Канал', url: 'https://t.me/SunyWorld_me' }],
+          [{ text: '⭐️ Купить безлимит', callback_data: 'buy_unlimited' }]
         ]
       }
     }
   );
 }
 
-// ===== ИНФОРМАЦИОННОЕ МЕНЮ ПОКУПКИ =====
+// ===== ХЕНДЛЕРЫ ГЕНЕРАЦИИ =====
+async function handleRegular(ctx) {
+  await generateWithAnimation(ctx, generateRegular, 'обычные', MAX_REGULAR);
+}
+
+async function handleBeautiful(ctx) {
+  await generateWithAnimation(ctx, generateBeautifulSet, 'красивые', MAX_BEAUTIFUL);
+}
+
+// ===== ИНФОРМАЦИЯ О ПОКУПКЕ =====
 async function showBuyInfo(ctx) {
   await ctx.answerCbQuery();
   await ctx.reply(
-    `💎 Купить бесконечную генерацию можно у @gokot за 15 ⭐️.\n\nНапишите ему для оформления.`,
+    `💎 Купить бесконечную генерацию (снятие всех лимитов) можно у @gokot за 15 ⭐️.\n\nНапишите ему для оформления.`,
     {
       reply_markup: {
         inline_keyboard: [
@@ -196,22 +236,25 @@ async function showBuyInfo(ctx) {
 // ===== КОМАНДЫ =====
 bot.start((ctx) => {
   ctx.reply(
-    `👋 Привет! Я генерирую 5-символьные username с крутой анимацией.\n` +
-    `У вас есть ${MAX_GENERATIONS} генераций в сутки.\n` +
-    `Просто нажми кнопку!`,
+    `👋 Привет! Я генерирую крутые 5-символьные username.\n\n` +
+    `📌 Обычная генерация – 5 раз в сутки (смесь красивых и рандомных).\n` +
+    `✨ Красивые юзернеймы – 3 раза в сутки (только словарные, как @gokot).\n\n` +
+    `Выбери, что хочешь получить:`,
     {
       reply_markup: {
         inline_keyboard: [
-          [{ text: '🎲 Сгенерировать', callback_data: 'generate_more' }],
-          [{ text: '📢 Подписаться на канал', url: 'https://t.me/SunyWorld_me' }],
-          [{ text: '⭐️ Купить бесконечную генерацию', callback_data: 'buy_unlimited' }]
+          [{ text: '🎲 Обычные', callback_data: 'generate_regular' }],
+          [{ text: '✨ Красивые', callback_data: 'generate_beautiful' }],
+          [{ text: '📢 Канал', url: 'https://t.me/SunyWorld_me' }],
+          [{ text: '⭐️ Купить безлимит', callback_data: 'buy_unlimited' }]
         ]
       }
     }
   );
 });
 
-bot.command('generate', async (ctx) => await generateWithAnimation(ctx));
+bot.command('generate', async (ctx) => await handleRegular(ctx));
+bot.command('beautiful', async (ctx) => await handleBeautiful(ctx));
 bot.command('buy', async (ctx) => {
   await ctx.reply(
     `💎 Купить бесконечную генерацию можно у @gokot за 15 ⭐️.\n\nНапишите ему.`,
@@ -232,12 +275,15 @@ bot.command('admingokot', async (ctx) => {
   }
 });
 
-bot.hears(/generate|сгенерировать/i, async (ctx) => await generateWithAnimation(ctx));
-
 // ===== ДЕЙСТВИЯ КНОПОК =====
-bot.action('generate_more', async (ctx) => {
+bot.action('generate_regular', async (ctx) => {
   await ctx.answerCbQuery();
-  await generateWithAnimation(ctx);
+  await handleRegular(ctx);
+});
+
+bot.action('generate_beautiful', async (ctx) => {
+  await ctx.answerCbQuery();
+  await handleBeautiful(ctx);
 });
 
 bot.action('buy_unlimited', async (ctx) => {
@@ -246,12 +292,12 @@ bot.action('buy_unlimited', async (ctx) => {
 
 bot.action('back_to_menu', async (ctx) => {
   await ctx.answerCbQuery();
-  await ctx.reply('🔙 Возвращаемся в главное меню. Отправьте /start или /generate.');
+  await ctx.reply('🔙 Возвращаемся в главное меню. Отправьте /start.');
 });
 
 // ===== ЗАПУСК =====
 bot.launch()
-  .then(() => console.log('✅ Бот запущен (анимация, без проверки)'))
+  .then(() => console.log('✅ Бот запущен (5-значные, две вкладки, анимация)'))
   .catch(err => console.error('❌ Ошибка:', err));
 
 process.once('SIGINT', () => bot.stop('SIGINT'));
