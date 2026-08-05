@@ -6,20 +6,20 @@ const fs = require('fs');
 const bot = new Telegraf(process.env.BOT_TOKEN);
 
 // ===== НАСТРОЙКИ =====
-const USERNAME_LENGTH = 6;          // теперь 6 символов (шанс найти свободный выше)
+const USERNAME_LENGTH = 6;            // теперь 6 символов
 const HOW_MANY = 5;
 const CHANCE_READABLE = 0.4;
 const MAX_GENERATIONS = 5;
 const COOLDOWN_MS = 24 * 60 * 60 * 1000;
-const MAX_ATTEMPTS_PER_GENERATION = 100; // больше попыток
-const ADMIN_IDS = [123456789, 987654321];
+const MAX_ATTEMPTS_PER_GENERATION = 50; // больше попыток
+const ADMIN_IDS = [123456789, 987654321]; // замените на свои ID
 
 // ===== БУКВЫ ДЛЯ ГЕНЕРАЦИИ =====
 const CONSONANTS = 'bcdfghjklmnpqrstvwxyz';
 const VOWELS = 'aeiouy';
 const ENDINGS = ['ex', 'ox', 'ix', 'ux', 'ax', 'ez', 'oz'];
 
-// ===== РАБОТА С JSON-ФАЙЛОМ =====
+// ===== РАБОТА С JSON =====
 const DATA_FILE = 'data.json';
 
 function loadData() {
@@ -37,9 +37,6 @@ function saveData(data) {
 
 let data = loadData();
 
-// ===== КЭШ ПРОВЕРЕННЫХ ИМЁН (за один сеанс) =====
-const checkedCache = new Map();
-
 // ===== ГЕНЕРАЦИЯ ИМЁН =====
 function generateRandom() {
   const chars = 'abcdefghijklmnopqrstuvwxyz0123456789_';
@@ -51,18 +48,30 @@ function generateRandom() {
 }
 
 function generateReadable() {
-  const pattern = Math.random() < 0.5 ? 'CVCVC' : 'VCVCV';
+  // Генерируем читаемое имя длиной 6 символов
   let result = '';
-  for (let i = 0; i < pattern.length; i++) {
-    if (pattern[i] === 'C') {
-      result += CONSONANTS.charAt(Math.floor(Math.random() * CONSONANTS.length));
-    } else {
-      result += VOWELS.charAt(Math.floor(Math.random() * VOWELS.length));
+  if (Math.random() < 0.5) {
+    // Схема CVCVCV (согласная-гласная-согласная-гласная-согласная-гласная)
+    for (let i = 0; i < 6; i++) {
+      if (i % 2 === 0) {
+        result += CONSONANTS.charAt(Math.floor(Math.random() * CONSONANTS.length));
+      } else {
+        result += VOWELS.charAt(Math.floor(Math.random() * VOWELS.length));
+      }
     }
+  } else {
+    // Схема CVCCVC (согласная-гласная-согласная-согласная-гласная-согласная)
+    result += CONSONANTS.charAt(Math.floor(Math.random() * CONSONANTS.length));
+    result += VOWELS.charAt(Math.floor(Math.random() * VOWELS.length));
+    result += CONSONANTS.charAt(Math.floor(Math.random() * CONSONANTS.length));
+    result += CONSONANTS.charAt(Math.floor(Math.random() * CONSONANTS.length));
+    result += VOWELS.charAt(Math.floor(Math.random() * VOWELS.length));
+    result += CONSONANTS.charAt(Math.floor(Math.random() * CONSONANTS.length));
   }
+  // Иногда добавляем популярное окончание
   if (Math.random() < 0.3) {
     const ending = ENDINGS[Math.floor(Math.random() * ENDINGS.length)];
-    result = result.slice(0, 3) + ending;
+    result = result.slice(0, 4) + ending; // первые 4 + окончание из 2 = 6
   }
   return result;
 }
@@ -71,13 +80,8 @@ function generateOne() {
   return Math.random() < CHANCE_READABLE ? generateReadable() : generateRandom();
 }
 
-// ===== ПРОВЕРКА ЗАНЯТОСТИ С КЭШЕМ =====
+// ===== ПРОВЕРКА ЗАНЯТОСТИ =====
 async function isUsernameTaken(username) {
-  // Проверяем кэш
-  if (checkedCache.has(username)) {
-    return checkedCache.get(username);
-  }
-
   try {
     const url = `https://t.me/${username}`;
     const response = await axios.get(url, {
@@ -85,13 +89,9 @@ async function isUsernameTaken(username) {
       maxRedirects: 0,
       validateStatus: false,
     });
-    const taken = response.status !== 404;
-    checkedCache.set(username, taken);
-    return taken;
+    return response.status !== 404;
   } catch (error) {
     console.error(`Ошибка проверки ${username}:`, error.message);
-    // При ошибке считаем занятым и кэшируем, чтобы не повторять
-    checkedCache.set(username, true);
     return true;
   }
 }
@@ -130,7 +130,7 @@ function checkAndUpdateUser(userId) {
   };
 }
 
-// ===== ОСНОВНАЯ ГЕНЕРАЦИЯ С АВТОПРОВЕРКОЙ =====
+// ===== ОСНОВНАЯ ГЕНЕРАЦИЯ С АНИМАЦИЕЙ =====
 async function handleGenerate(ctx) {
   const userId = ctx.from.id;
 
@@ -146,11 +146,14 @@ async function handleGenerate(ctx) {
     return;
   }
 
-  const statusMsg = await ctx.reply('🔍 Генерирую и проверяю свободные username...');
+  // Статусное сообщение с анимацией
+  const statusMsg = await ctx.reply('⏳ Генерирую и проверяю свободные username...');
 
   let found = [];
   let attempts = 0;
   const usedNames = new Set();
+  const spinner = ['🔍', '🕵️', '🔎', '🧐', '⏳', '⚡', '✨'];
+  let spinIndex = 0;
 
   while (found.length < HOW_MANY && attempts < MAX_ATTEMPTS_PER_GENERATION) {
     attempts++;
@@ -163,28 +166,35 @@ async function handleGenerate(ctx) {
       found.push(name);
     }
 
-    if (attempts % 10 === 0 || attempts === MAX_ATTEMPTS_PER_GENERATION) {
+    // Анимация – обновляем сообщение каждые 2 попытки
+    if (attempts % 2 === 0 || attempts === MAX_ATTEMPTS_PER_GENERATION) {
+      const icon = spinner[spinIndex % spinner.length];
+      spinIndex++;
       await ctx.telegram.editMessageText(
         statusMsg.chat.id,
         statusMsg.message_id,
         null,
-        `🔍 Ищу свободные имена... (проверено ${attempts}, найдено ${found.length})`
+        `${icon} Ищу свободные имена (${USERNAME_LENGTH} символов)...\nПроверено: ${attempts}, найдено: ${found.length}`
       ).catch(() => {});
     }
   }
 
+  // Удаляем статусное сообщение
+  await ctx.telegram.deleteMessage(statusMsg.chat.id, statusMsg.message_id).catch(() => {});
+
   // Формируем ответ
   let reply;
   if (found.length === 0) {
-    reply = '😞 Не удалось найти ни одного свободного username длиной ' + USERNAME_LENGTH + '. Попробуйте ещё раз.';
+    reply = `😞 Не удалось найти ни одного свободного ${USERNAME_LENGTH}-символьного username.\n` +
+            `Попробуйте ещё раз или измените длину (сейчас ${USERNAME_LENGTH}).\n` +
+            `Все короткие имена могут быть заняты.`;
   } else {
-    reply = `✨ Нашёл ${found.length} свободных username:\n` + found.map(n => `@${n}`).join('\n');
+    reply = `✨ Нашёл ${found.length} свободных username (${USERNAME_LENGTH} символов):\n` +
+            found.map(n => `@${n}`).join('\n');
     if (found.length < HOW_MANY) {
       reply += `\n\n⚠️ Удалось найти только ${found.length} из ${HOW_MANY} (остальные заняты).`;
     }
   }
-
-  await ctx.telegram.deleteMessage(statusMsg.chat.id, statusMsg.message_id).catch(() => {});
 
   await ctx.reply(
     reply,
@@ -274,7 +284,7 @@ bot.action('back_to_menu', async (ctx) => {
 
 // ===== ЗАПУСК =====
 bot.launch()
-  .then(() => console.log('✅ Бот запущен (6 символов, автопроверка)'))
+  .then(() => console.log('✅ Бот запущен (6 символов, анимация)'))
   .catch(err => console.error('❌ Ошибка:', err));
 
 process.once('SIGINT', () => bot.stop('SIGINT'));
