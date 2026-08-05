@@ -10,8 +10,8 @@ const HOW_MANY = 5;
 const CHANCE_READABLE = 0.4;
 const MAX_GENERATIONS = 5;
 const COOLDOWN_MS = 24 * 60 * 60 * 1000;
-const CHANNEL_ID = '@SunyWorld_me';           // ваш канал
-const ADMIN_IDS = [8579640456, 987654321];     // замените на свои ID
+const CHANNEL_ID = '@SunyWorld_me';
+const ADMIN_IDS = [123456789, 987654321]; // замените на свои ID
 
 // ===== БУКВЫ ДЛЯ ГЕНЕРАЦИИ =====
 const CONSONANTS = 'bcdfghjklmnpqrstvwxyz';
@@ -79,7 +79,6 @@ function generateUsernames(count) {
 
 // ===== ПРОВЕРКА ПОДПИСКИ =====
 async function checkSubscription(userId) {
-  // Админы и премиум-пользователи пропускают проверку
   if (ADMIN_IDS.includes(userId)) return true;
   if (data.users[userId]?.unlimited) return true;
 
@@ -88,7 +87,7 @@ async function checkSubscription(userId) {
     return ['member', 'administrator', 'creator'].includes(chatMember.status);
   } catch (error) {
     console.error('Ошибка проверки подписки:', error.message);
-    return false; // если бот не в канале, считаем неподписанным
+    return false;
   }
 }
 
@@ -139,7 +138,7 @@ async function handleGenerate(ctx) {
         reply_markup: {
           inline_keyboard: [
             [{ text: '📢 Подписаться', url: 'https://t.me/SunyWorld_me' }],
-            // КНОПКИ "ПРОВЕРИТЬ" НЕТ – бот проверит при следующей попытке
+            [{ text: '🎲 Сгенерировать', callback_data: 'generate_more' }],
             [{ text: '⭐️ Купить бесконечную генерацию', callback_data: 'buy_unlimited' }]
           ]
         }
@@ -196,7 +195,6 @@ async function showBuyInfo(ctx) {
 
 // ===== КОМАНДЫ =====
 bot.start(async (ctx) => {
-  // При старте показываем главное меню, но если не подписан – предложим подписаться
   const isSubscribed = await checkSubscription(ctx.from.id);
   if (!isSubscribed) {
     await ctx.reply(
@@ -205,6 +203,7 @@ bot.start(async (ctx) => {
         reply_markup: {
           inline_keyboard: [
             [{ text: '📢 Подписаться', url: 'https://t.me/SunyWorld_me' }],
+            [{ text: '🎲 Сгенерировать', callback_data: 'generate_more' }],
             [{ text: '⭐️ Купить бесконечную генерацию', callback_data: 'buy_unlimited' }]
           ]
         }
@@ -268,7 +267,7 @@ bot.action('back_to_menu', async (ctx) => {
 
 // ===== ЗАПУСК =====
 bot.launch()
-  .then(() => console.log('✅ Бот запущен (с подпиской, без кнопки проверки)'))
+  .then(() => console.log('✅ Бот запущен (с кнопкой "Сгенерировать" в подписке)'))
   .catch(err => console.error('❌ Ошибка:', err));
 
 process.once('SIGINT', () => bot.stop('SIGINT'));
