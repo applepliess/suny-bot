@@ -10,15 +10,15 @@ const HOW_MANY = 5;
 const CHANCE_READABLE = 0.4;
 const MAX_GENERATIONS = 5;
 const COOLDOWN_MS = 24 * 60 * 60 * 1000;
-const CHANNEL_ID = '@SunyWorld_me';
-const ADMIN_IDS = [8579640456, 987654321]; // замените на свои ID
+const CHANNEL_ID = '@SunyWorld_me';           // ваш канал
+const ADMIN_IDS = [123456789, 987654321];     // замените на свои ID
 
 // ===== БУКВЫ ДЛЯ ГЕНЕРАЦИИ =====
 const CONSONANTS = 'bcdfghjklmnpqrstvwxyz';
 const VOWELS = 'aeiouy';
 const ENDINGS = ['ex', 'ox', 'ix', 'ux', 'ax', 'ez', 'oz'];
 
-// ===== РАБОТА С JSON-ФАЙЛОМ =====
+// ===== РАБОТА С JSON-ФАЙЛОМ (сохраняем лимиты и премиум) =====
 const DATA_FILE = 'data.json';
 
 function loadData() {
@@ -79,7 +79,7 @@ function generateUsernames(count) {
 
 // ===== ПРОВЕРКА ПОДПИСКИ =====
 async function checkSubscription(userId) {
-  // Админы и премиум-пользователи пропускают проверку
+  // Админы и премиум-пользователи (в JSON) пропускают проверку
   if (ADMIN_IDS.includes(userId)) return true;
   if (data.users[userId]?.unlimited) return true;
 
@@ -88,11 +88,12 @@ async function checkSubscription(userId) {
     return ['member', 'administrator', 'creator'].includes(chatMember.status);
   } catch (error) {
     console.error('Ошибка проверки подписки:', error.message);
-    return false; // если бот не в канале – считаем не подписан
+    // Если бот не добавлен в канал – лучше вернуть false, чтобы не пускать
+    return false;
   }
 }
 
-// ===== ЛИМИТЫ =====
+// ===== ЛИМИТЫ (с учётом премиум-статуса) =====
 function checkAndUpdateUser(userId) {
   // Админы и премиум – без лимитов
   if (ADMIN_IDS.includes(userId)) return { allowed: true };
@@ -122,7 +123,7 @@ function checkAndUpdateUser(userId) {
 
   return {
     allowed: false,
-    message: `⛔ Вы исчерпали лимит (${MAX_GENERATIONS} генераций в сутки).\nПовторите через ${timeStr}.\n\nИли купите бесконечную генерацию за 15⭐️, нажав кнопку ниже.`,
+    message: `⛔ Вы исчерпали лимит (${MAX_GENERATIONS} генераций в сутки).\nПовторите через ${timeStr}.\n\nИли купите бесконечную генерацию у @gokot за 15⭐️.`,
     showBuyButton: true
   };
 }
@@ -131,7 +132,7 @@ function checkAndUpdateUser(userId) {
 async function handleGenerate(ctx) {
   const userId = ctx.from.id;
 
-  // 1. Подписка (если не админ и не премиум)
+  // 1. Проверка подписки
   const isSubscribed = await checkSubscription(userId);
   if (!isSubscribed) {
     await ctx.reply(
@@ -149,18 +150,20 @@ async function handleGenerate(ctx) {
     return;
   }
 
-  // 2. Лимиты
+  // 2. Проверка лимитов
   const check = checkAndUpdateUser(userId);
   if (!check.allowed) {
-    const buttons = [[{ text: '🎲 Сгенерировать ещё', callback_data: 'generate_more' }]];
+    const buttons = [
+      [{ text: '🎲 Сгенерировать ещё', callback_data: 'generate_more' }]
+    ];
     if (check.showBuyButton) {
-      buttons.push([{ text: '⭐️ Купить бесконечную генерацию за 15⭐️', callback_data: 'buy_unlimited' }]);
+      buttons.push([{ text: '⭐️ Купить бесконечную генерацию', callback_data: 'buy_unlimited' }]);
     }
     await ctx.reply(check.message, { reply_markup: { inline_keyboard: buttons } });
     return;
   }
 
-  // 3. Генерация
+  // 3. Генерация имён
   const names = generateUsernames(HOW_MANY);
   const reply = names.map(n => `@${n}`).join('\n');
 
@@ -177,36 +180,21 @@ async function handleGenerate(ctx) {
   );
 }
 
-// ===== ОПЛАТА ЧЕРЕЗ TELEGRAM STARS =====
-async function sendInvoice(ctx) {
-  try {
-    await ctx.replyWithInvoice({
-      title: 'Бесконечная генерация username',
-      description: 'Навсегда снимите все лимиты и забудьте о подписке!',
-      payload: 'unlimited_generation',
-      provider_token: '', // для Stars не нужен
-      currency: 'XTR',
-      prices: [{ label: 'Бесконечная генерация', amount: 15 }],
-      start_parameter: 'buy_unlimited',
-    });
-  } catch (error) {
-    console.error('Ошибка выставления счёта:', error);
-    await ctx.reply('❌ Не удалось создать платёж. Попробуйте позже.');
-  }
+// ===== ОБРАБОТКА КНОПКИ "Купить бесконечную генерацию" (без оплаты!) =====
+async function showBuyInfo(ctx) {
+  await ctx.answerCbQuery(); // убираем "часики"
+  await ctx.reply(
+    `💎 Купить бесконечную генерацию можно у @gokot за 15 ⭐️.\n\nНапишите ему для оформления.`,
+    {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '✉️ Написать @gokot', url: 'https://t.me/gokot' }],
+          [{ text: '🔙 Назад', callback_data: 'back_to_menu' }]
+        ]
+      }
+    }
+  );
 }
-
-bot.on('pre_checkout_query', async (ctx) => {
-  await ctx.answerPreCheckoutQuery(true);
-});
-
-bot.on('successful_payment', async (ctx) => {
-  const userId = ctx.from.id;
-  // Отмечаем пользователя как премиум
-  if (!data.users[userId]) data.users[userId] = {};
-  data.users[userId].unlimited = true;
-  saveData(data);
-  await ctx.reply('✅ Поздравляем! Вы купили бесконечную генерацию навсегда. Теперь вы можете генерировать без лимитов и без подписки!');
-});
 
 // ===== КОМАНДЫ =====
 bot.start(async (ctx) => {
@@ -243,7 +231,19 @@ bot.start(async (ctx) => {
 });
 
 bot.command('generate', async (ctx) => await handleGenerate(ctx));
-bot.command('buy', async (ctx) => await sendInvoice(ctx));
+bot.command('buy', async (ctx) => {
+  // команда /buy теперь тоже показывает информацию
+  await ctx.reply(
+    `💎 Купить бесконечную генерацию можно у @gokot за 15 ⭐️.\n\nНапишите ему.`,
+    {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '✉️ Написать @gokot', url: 'https://t.me/gokot' }]
+        ]
+      }
+    }
+  );
+});
 bot.command('admingokot', async (ctx) => {
   if (ADMIN_IDS.includes(ctx.from.id)) {
     await ctx.reply('✅ Админ-режим активирован.');
@@ -254,7 +254,7 @@ bot.command('admingokot', async (ctx) => {
 
 bot.hears(/generate|сгенерировать/i, async (ctx) => await handleGenerate(ctx));
 
-// Кнопки
+// ===== ДЕЙСТВИЯ КНОПОК =====
 bot.action('generate_more', async (ctx) => {
   await ctx.answerCbQuery();
   await handleGenerate(ctx);
@@ -264,11 +264,11 @@ bot.action('check_sub', async (ctx) => {
   await ctx.answerCbQuery();
   const isSubscribed = await checkSubscription(ctx.from.id);
   if (isSubscribed) {
-    await ctx.reply('✅ Подписка подтверждена!');
-    await handleGenerate(ctx);
+    await ctx.reply('✅ Подписка подтверждена! Генерируем...');
+    await handleGenerate(ctx); // сразу генерируем
   } else {
     await ctx.reply(
-      '❌ Вы всё ещё не подписаны.',
+      '❌ Вы всё ещё не подписаны. Пожалуйста, подпишитесь и нажмите «Проверить» снова.',
       {
         reply_markup: {
           inline_keyboard: [
@@ -283,13 +283,17 @@ bot.action('check_sub', async (ctx) => {
 });
 
 bot.action('buy_unlimited', async (ctx) => {
+  await showBuyInfo(ctx);
+});
+
+bot.action('back_to_menu', async (ctx) => {
   await ctx.answerCbQuery();
-  await sendInvoice(ctx);
+  await ctx.reply('Возвращаемся в главное меню. Отправьте /start или /generate.');
 });
 
 // ===== ЗАПУСК =====
 bot.launch()
-  .then(() => console.log('✅ Бот запущен (с покупкой Stars)'))
+  .then(() => console.log('✅ Бот запущен (информационная покупка)'))
   .catch(err => console.error('❌ Ошибка:', err));
 
 process.once('SIGINT', () => bot.stop('SIGINT'));
