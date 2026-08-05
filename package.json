@@ -1,14 +1,13 @@
 {
   "name": "username-generator-bot",
   "version": "1.0.0",
-  "description": "Telegram bot for generating free 5-character usernames",
+  "description": "Telegram bot with subscription, cooldown and Stars payment",
   "main": "bot.js",
   "scripts": {
     "start": "node bot.js"
   },
   "dependencies": {
     "telegraf": "^4.15.3",
-    "dotenv": "^16.4.5",
-    "axios": "^1.7.2"
+    "dotenv": "^16.4.5"
   }
 }
