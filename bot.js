@@ -10,7 +10,6 @@ const HOW_MANY = 5;
 const CHANCE_READABLE = 0.4;
 const MAX_GENERATIONS = 5;
 const COOLDOWN_MS = 24 * 60 * 60 * 1000;
-const CHANNEL_ID = '@SunyWorld_me';
 const ADMIN_IDS = [123456789, 987654321]; // замените на свои ID
 
 // ===== БУКВЫ ДЛЯ ГЕНЕРАЦИИ =====
@@ -18,7 +17,7 @@ const CONSONANTS = 'bcdfghjklmnpqrstvwxyz';
 const VOWELS = 'aeiouy';
 const ENDINGS = ['ex', 'ox', 'ix', 'ux', 'ax', 'ez', 'oz'];
 
-// ===== РАБОТА С JSON-ФАЙЛОМ =====
+// ===== РАБОТА С JSON-ФАЙЛОМ (лимиты и премиум) =====
 const DATA_FILE = 'data.json';
 
 function loadData() {
@@ -77,22 +76,9 @@ function generateUsernames(count) {
   return Array.from(set);
 }
 
-// ===== ПРОВЕРКА ПОДПИСКИ =====
-async function checkSubscription(userId) {
-  if (ADMIN_IDS.includes(userId)) return true;
-  if (data.users[userId]?.unlimited) return true;
-
-  try {
-    const chatMember = await bot.telegram.getChatMember(CHANNEL_ID, userId);
-    return ['member', 'administrator', 'creator'].includes(chatMember.status);
-  } catch (error) {
-    console.error('Ошибка проверки подписки:', error.message);
-    return false;
-  }
-}
-
-// ===== ЛИМИТЫ =====
+// ===== ЛИМИТЫ (с учётом премиум-статуса) =====
 function checkAndUpdateUser(userId) {
+  // Админы и премиум – без лимитов
   if (ADMIN_IDS.includes(userId)) return { allowed: true };
   if (data.users[userId]?.unlimited) return { allowed: true };
 
@@ -125,29 +111,11 @@ function checkAndUpdateUser(userId) {
   };
 }
 
-// ===== ГЛАВНАЯ ФУНКЦИЯ ГЕНЕРАЦИИ =====
+// ===== ОСНОВНАЯ ФУНКЦИЯ ГЕНЕРАЦИИ (БЕЗ ПРОВЕРКИ ПОДПИСКИ) =====
 async function handleGenerate(ctx) {
   const userId = ctx.from.id;
 
-  // 1. Проверка подписки
-  const isSubscribed = await checkSubscription(userId);
-  if (!isSubscribed) {
-    await ctx.reply(
-      `❌ Для использования бота подпишитесь на канал:\n${CHANNEL_ID}`,
-      {
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: '📢 Подписаться', url: 'https://t.me/SunyWorld_me' }],
-            [{ text: '🎲 Сгенерировать', callback_data: 'generate_more' }],
-            [{ text: '⭐️ Купить бесконечную генерацию', callback_data: 'buy_unlimited' }]
-          ]
-        }
-      }
-    );
-    return;
-  }
-
-  // 2. Проверка лимитов
+  // Проверка лимитов
   const check = checkAndUpdateUser(userId);
   if (!check.allowed) {
     const buttons = [
@@ -160,7 +128,7 @@ async function handleGenerate(ctx) {
     return;
   }
 
-  // 3. Генерация
+  // Генерация имён
   const names = generateUsernames(HOW_MANY);
   const reply = names.map(n => `@${n}`).join('\n');
 
@@ -170,6 +138,7 @@ async function handleGenerate(ctx) {
       reply_markup: {
         inline_keyboard: [
           [{ text: '🎲 Сгенерировать ещё', callback_data: 'generate_more' }],
+          [{ text: '📢 Подписаться на канал', url: 'https://t.me/SunyWorld_me' }],
           [{ text: '⭐️ Купить бесконечную генерацию', callback_data: 'buy_unlimited' }]
         ]
       }
@@ -194,32 +163,16 @@ async function showBuyInfo(ctx) {
 }
 
 // ===== КОМАНДЫ =====
-bot.start(async (ctx) => {
-  const isSubscribed = await checkSubscription(ctx.from.id);
-  if (!isSubscribed) {
-    await ctx.reply(
-      `👋 Привет! Для начала работы подпишись на канал:\n${CHANNEL_ID}`,
-      {
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: '📢 Подписаться', url: 'https://t.me/SunyWorld_me' }],
-            [{ text: '🎲 Сгенерировать', callback_data: 'generate_more' }],
-            [{ text: '⭐️ Купить бесконечную генерацию', callback_data: 'buy_unlimited' }]
-          ]
-        }
-      }
-    );
-    return;
-  }
-
+bot.start((ctx) => {
   ctx.reply(
     `👋 Привет! Я генерирую 5-символьные username.\n` +
-    `У вас есть ${MAX_GENERATIONS} генераций в сутки.\n` +
-    `Отправь /generate или нажми кнопку.`,
+    `У вас есть ${MAX_GENERATIONS} генераций в сутки.\n\n` +
+    `Подпишитесь на наш канал, чтобы быть в курсе (не обязательно для генерации).`,
     {
       reply_markup: {
         inline_keyboard: [
           [{ text: '🎲 Сгенерировать', callback_data: 'generate_more' }],
+          [{ text: '📢 Подписаться на канал', url: 'https://t.me/SunyWorld_me' }],
           [{ text: '⭐️ Купить бесконечную генерацию', callback_data: 'buy_unlimited' }]
         ]
       }
@@ -267,7 +220,7 @@ bot.action('back_to_menu', async (ctx) => {
 
 // ===== ЗАПУСК =====
 bot.launch()
-  .then(() => console.log('✅ Бот запущен (с кнопкой "Сгенерировать" в подписке)'))
+  .then(() => console.log('✅ Бот запущен (без проверки подписки)'))
   .catch(err => console.error('❌ Ошибка:', err));
 
 process.once('SIGINT', () => bot.stop('SIGINT'));
