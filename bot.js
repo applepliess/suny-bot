@@ -1,5 +1,6 @@
 require('dotenv').config();
 const Telegraf = require('telegraf').Telegraf;
+const axios = require('axios');
 const fs = require('fs');
 
 const bot = new Telegraf(process.env.BOT_TOKEN);
@@ -10,14 +11,14 @@ const HOW_MANY = 5;
 const CHANCE_READABLE = 0.4;
 const MAX_GENERATIONS = 5;
 const COOLDOWN_MS = 24 * 60 * 60 * 1000;
-const ADMIN_IDS = [8579640456, 8245007881]; // замените на свои ID
+const ADMIN_IDS = [123456789, 987654321]; // замените на свои ID
 
 // ===== БУКВЫ ДЛЯ ГЕНЕРАЦИИ =====
 const CONSONANTS = 'bcdfghjklmnpqrstvwxyz';
 const VOWELS = 'aeiouy';
 const ENDINGS = ['ex', 'ox', 'ix', 'ux', 'ax', 'ez', 'oz'];
 
-// ===== РАБОТА С JSON-ФАЙЛОМ (лимиты и премиум) =====
+// ===== РАБОТА С JSON-ФАЙЛОМ =====
 const DATA_FILE = 'data.json';
 
 function loadData() {
@@ -76,9 +77,24 @@ function generateUsernames(count) {
   return Array.from(set);
 }
 
-// ===== ЛИМИТЫ (с учётом премиум-статуса) =====
+// ===== ПРОВЕРКА ЗАНЯТОСТИ ЧЕРЕЗ t.me =====
+async function isUsernameTaken(username) {
+  try {
+    const url = `https://t.me/${username}`;
+    const response = await axios.get(url, {
+      timeout: 8000,
+      maxRedirects: 0,
+      validateStatus: false,
+    });
+    return response.status !== 404; // если не 404 – значит занят
+  } catch (error) {
+    console.error(`Ошибка проверки ${username}:`, error.message);
+    return true; // при ошибке считаем занятым
+  }
+}
+
+// ===== ЛИМИТЫ =====
 function checkAndUpdateUser(userId) {
-  // Админы и премиум – без лимитов
   if (ADMIN_IDS.includes(userId)) return { allowed: true };
   if (data.users[userId]?.unlimited) return { allowed: true };
 
@@ -111,11 +127,13 @@ function checkAndUpdateUser(userId) {
   };
 }
 
-// ===== ОСНОВНАЯ ФУНКЦИЯ ГЕНЕРАЦИИ (БЕЗ ПРОВЕРКИ ПОДПИСКИ) =====
+// Храним последние сгенерированные имена для проверки
+let lastGenerated = [];
+
+// ===== ГЛАВНАЯ ФУНКЦИЯ ГЕНЕРАЦИИ =====
 async function handleGenerate(ctx) {
   const userId = ctx.from.id;
 
-  // Проверка лимитов
   const check = checkAndUpdateUser(userId);
   if (!check.allowed) {
     const buttons = [
@@ -128,8 +146,9 @@ async function handleGenerate(ctx) {
     return;
   }
 
-  // Генерация имён
   const names = generateUsernames(HOW_MANY);
+  lastGenerated = names; // сохраняем для проверки
+
   const reply = names.map(n => `@${n}`).join('\n');
 
   await ctx.reply(
@@ -138,8 +157,52 @@ async function handleGenerate(ctx) {
       reply_markup: {
         inline_keyboard: [
           [{ text: '🎲 Сгенерировать ещё', callback_data: 'generate_more' }],
+          [{ text: '🔍 Проверить занятость', callback_data: 'check_availability' }],
           [{ text: '📢 Подписаться на канал', url: 'https://t.me/SunyWorld_me' }],
           [{ text: '⭐️ Купить бесконечную генерацию', callback_data: 'buy_unlimited' }]
+        ]
+      }
+    }
+  );
+}
+
+// ===== ОБРАБОТКА ПРОВЕРКИ ЗАНЯТОСТИ =====
+async function handleCheckAvailability(ctx) {
+  await ctx.answerCbQuery();
+  if (lastGenerated.length === 0) {
+    await ctx.reply('❌ Нет имён для проверки. Сначала сгенерируйте их.');
+    return;
+  }
+
+  const statusMsg = await ctx.reply('🔍 Проверяю занятость имён... Подождите.');
+
+  const results = [];
+  for (const name of lastGenerated) {
+    const taken = await isUsernameTaken(name);
+    const status = taken ? '❌ занят' : '✅ свободен';
+    results.push(`@${name} — ${status}`);
+  }
+
+  const reply = results.join('\n');
+
+  await ctx.telegram.editMessageText(
+    statusMsg.chat.id,
+    statusMsg.message_id,
+    null,
+    `📊 Результаты проверки:\n${reply}`
+  );
+
+  // Предложим сгенерировать ещё, если все заняты
+  const allTaken = lastGenerated.every(async (name) => await isUsernameTaken(name));
+  // Но так как мы уже проверили, можно просто проверить по сохранённым результатам
+  // Проще: если все заняты, предложим сгенерировать новые.
+  // Для простоты добавим кнопку "Сгенерировать ещё" в ответ.
+  await ctx.reply(
+    `Если хотите новые имена, нажмите "Сгенерировать ещё".`,
+    {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '🎲 Сгенерировать ещё', callback_data: 'generate_more' }]
         ]
       }
     }
@@ -167,7 +230,7 @@ bot.start((ctx) => {
   ctx.reply(
     `👋 Привет! Я генерирую 5-символьные username.\n` +
     `У вас есть ${MAX_GENERATIONS} генераций в сутки.\n\n` +
-    `Подпишитесь на наш канал, чтобы быть в курсе (не обязательно для генерации).`,
+    `Подпишитесь на наш канал (не обязательно для генерации).`,
     {
       reply_markup: {
         inline_keyboard: [
@@ -209,6 +272,10 @@ bot.action('generate_more', async (ctx) => {
   await handleGenerate(ctx);
 });
 
+bot.action('check_availability', async (ctx) => {
+  await handleCheckAvailability(ctx);
+});
+
 bot.action('buy_unlimited', async (ctx) => {
   await showBuyInfo(ctx);
 });
@@ -220,7 +287,7 @@ bot.action('back_to_menu', async (ctx) => {
 
 // ===== ЗАПУСК =====
 bot.launch()
-  .then(() => console.log('✅ Бот запущен (без проверки подписки)'))
+  .then(() => console.log('✅ Бот запущен (с проверкой занятости)'))
   .catch(err => console.error('❌ Ошибка:', err));
 
 process.once('SIGINT', () => bot.stop('SIGINT'));
