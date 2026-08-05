@@ -1,13 +1,14 @@
 {
   "name": "username-generator-bot",
   "version": "1.0.0",
-  "description": "Telegram bot with subscription and manual purchase info",
+  "description": "Telegram bot with username generation and availability check",
   "main": "bot.js",
   "scripts": {
     "start": "node bot.js"
   },
   "dependencies": {
     "telegraf": "^4.15.3",
-    "dotenv": "^16.4.5"
+    "dotenv": "^16.4.5",
+    "axios": "^1.7.2"
   }
 }
