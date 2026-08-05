@@ -10,7 +10,7 @@ const HOW_MANY = 5;
 const CHANCE_READABLE = 0.4;
 const MAX_GENERATIONS = 5;
 const COOLDOWN_MS = 24 * 60 * 60 * 1000;
-const ADMIN_IDS = [8579640456, 8579640456]; // замените на свои ID
+const ADMIN_IDS = [8579640456, 8245007881]; // замените на свои ID
 
 // ===== БУКВЫ ДЛЯ ГЕНЕРАЦИИ =====
 const CONSONANTS = 'bcdfghjklmnpqrstvwxyz';
